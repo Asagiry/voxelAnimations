@@ -1,0 +1,121 @@
+# Project Guidelines: Voxel Animations & Combat Assets
+
+> **Context for AI Agents**: This file is automatically loaded into your context. Read it thoroughly before authoring, modifying, or auditing any assets in this repository.
+
+---
+
+## 1. Project Overview & Mission
+
+This repository (**`voxelAnimations`**) is a production-grade procedural 3D micro-voxel asset laboratory and interactive combat gallery in the authentic retro-voxel style of **Trove**, **Cube World**, and **Astra 6**.
+
+We build, rig, animate, visually audit, and showcase 3D weapons, armor, props, and creatures. Everything is procedurally synthesized via Python scripts inside **Blender 4.2+**, exported as game-ready **glTF 2.0 (`.glb`)**, pre-rendered for visual verification (`.png`), and embedded into a zero-CORS browser gallery (`index.html`).
+
+---
+
+## 2. Repository Architecture
+
+```
+noble-fermi/ (voxelAnimations)
+├── index.html                               # Interactive Three.js 3D web gallery (port 8080)
+├── README.md                                # Repository overview & quickstart
+├── PROJECT_ONBOARDING.md                    # Deep-dive architecture & onboarding manual
+├── GEMINI.md                                # Agent instructions (this file)
+├── .gitignore                               # Excludes *.blend1, Python cache; tracks skills/
+├── skills/
+│   └── trove-voxel-artisan/                 # Core procedural voxel generation skill
+│       ├── SKILL.md                         # English archetype dispatcher & visual audit rules
+│       └── references/
+│           ├── blender-gamedev-practices.md # Technical Blender 4.2+ & gamedev contracts
+│           └── weapons/                     # Kinematic & anatomical archetype guides
+│               ├── scythe.md                # Lateral reaping harvest (no helicopter spins!)
+│               ├── katana.md                # Iaido supersonic crescent, zanshin, chiburui
+│               ├── greatsword.md            # Monolithic slab, gravitational earth-cleave
+│               ├── bow.md                   # Recurve wings, elastic draw, damped vibration
+│               ├── staff.md                 # Hovering mana core, channeling acceleration
+│               ├── dagger.md                # Reverse assassin grip, twin cross-slashes
+│               └── hammer.md                # Top-heavy kinetic mass, seismic shockwave
+└── assets/                                  # 12+ standalone asset packages
+    ├── Gemini3.7/                           # Astral Void Scythe (lateral reaping slash)
+    ├── Gemini3.8/                           # Astral Void Scythe (gyro-ring orbital)
+    ├── ClaudeSonnet4.6/                     # Astral Void Scythe (dual orbit rings)
+    ├── claude_opus_46/                      # Astral Void Scythe (concentric celestial)
+    ├── gemini36/                            # Astral Void Scythe (void blade)
+    ├── GeminiPro/                           # Astral Void Scythe (obsidian core)
+    ├── katana_flash/                        # Iaido Crescent Katana (continuous ribbon)
+    ├── katana_38_flash/                     # Iaido Razor Katana (5-phase iaido)
+    ├── katana_pro/                          # Tamahagane Katana (classic stance)
+    ├── guts_sword_flash/                    # Dragon Slayer (colossal greatsword)
+    ├── flame_sword/                         # Infernal Flame Sword (living fire surge)
+    └── magic_bow/                           # Celestial Magic Bow (starlight draw)
+```
+
+---
+
+## 3. Mandatory Non-Negotiable Engineering Rules
+
+### Rule 1: Communication vs Code Language
+- **User Communication**: Always communicate with the user in **Russian** (clear, concise, structured).
+- **Code & Prompts**: Always write procedural Python scripts, internal docstrings, prompt specifications, and technical references in **English**. (LLMs reason, compute 3D vectors, and generate Blender code with far higher fidelity in English).
+
+### Rule 2: Blender Headless CLI Execution
+- Never execute `python script.py` outside Blender. `bpy` is embedded inside Blender's C/Python environment.
+- Always execute scripts via Blender CLI:
+  ```powershell
+  & 'C:\Program Files\Blender Foundation\Blender 4.2\blender.exe' --background --python build_asset.py
+  ```
+
+### Rule 3: Blender 4.2+ glTF Export Contract
+- **Never pass deprecated flags** such as `export_rest_pose_armature` (raises fatal `TypeError` in Blender 4.2+).
+- Use the authoritative parameter set:
+  ```python
+  bpy.ops.export_scene.gltf(
+      filepath=glb_filepath,
+      export_format='GLB',
+      export_animations=True,
+      export_skins=True,
+      export_all_influences=False,
+      export_apply=False,
+      export_yup=True
+  )
+  ```
+
+### Rule 4: Bone Local Axis Kinematics (The Local +Y Rule)
+- In Blender armatures, **a bone's local +Y axis always points longitudinally along the bone shaft**.
+- Longitudinal spins, rolls, or drilling motions must rotate strictly on **local Y (`rotation_euler.y`)**.
+- Never rotate on local Z or X to spin an upright weapon; doing so flips the weapon 180° upside-down.
+- Always declare `pbone.rotation_mode = 'XYZ'` before setting `pbone.rotation_euler`.
+
+### Rule 5: Gamedev 5-Phase Combat State Machine
+Never animate an attack as a meaningless 360°/720° helicopter spin. Melee attacks must follow:
+1. **Phase 1: Startup / Telegraph (15–25%)** — Wind-up, kinetic energy coiling.
+2. **Phase 2: Active Hit Window (5–10%)** — Explosive acceleration, cutting edge leads the arc, hitbox active.
+3. **Phase 3: Overshoot / Follow-Through (10–15%)** — Momentum carries past impact.
+4. **Phase 4: Zanshin / Hit-Stop / Recoil (20–30%)** — Deceleration snap, physical mass confirmation.
+5. **Phase 5: Recovery / Sheath / Noto (25–35%)** — Graceful return to combat idle.
+
+### Rule 6: Depsgraph Evaluated Camera Framing (Anti-Black Render Guard)
+- **Never parent camera or `cam_target` to an animated bone**. They must remain static world objects.
+- Frame the camera using evaluated depsgraph (`eval_obj = obj.evaluated_get(depsgraph)`) across **all scene objects** at the peak action frame to prevent clipping wide slashes or VFX ribbons.
+- Render in **1:1 square aspect ratio** (`1024x1024`) with Cycles samples capped at `96–128` and AgX tonemapping.
+
+### Rule 7: Mandatory Visual Audit Loop
+Never declare an asset complete without running `view_file` on `<asset_name>_render.png`. Verify:
+- [ ] Weapon occupies 60%–80% of canvas diagonally.
+- [ ] Proper upright orientation (not flipped).
+- [ ] Saturated, rich emission without washed-out white clipping in AgX.
+- [ ] Attack ribbons spawn behind the cutting edge.
+
+---
+
+## 4. Web Gallery Integration Contract
+
+Every new asset must be wired into `index.html`:
+1. Read the exported `.glb` binary, convert to Base64, and save as `<asset_name>_data.js`:
+   ```javascript
+   window.ASSET_NAME_BASE64 = "data:model/gltf-binary;base64,...";
+   ```
+2. In `index.html`:
+   - Add `<script src="assets/<folder>/<asset_name>_data.js"></script>`.
+   - Add a tab button in `<div class="model-tabs">`.
+   - Add the asset configuration to `const MODELS = { ... }` with name, base64 key, ideal camera position, and animation state details.
+3. Test in browser: start `python -m http.server 8080` and verify at `http://localhost:8080/index.html`.
