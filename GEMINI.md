@@ -4,11 +4,17 @@
 
 ---
 
-## 1. Project Overview & Mission
+## 1. Project Overview & Current Mode: Exploratory Sandbox (R&D)
 
-This repository (**`voxelAnimations`**) is a production-grade procedural 3D micro-voxel asset laboratory and interactive combat gallery in the authentic retro-voxel style of **Trove**, **Cube World**, and **Astra 6**.
+> [!IMPORTANT]
+> **CURRENT PROJECT STATE: EXPERIMENTAL R&D & RAPID PROTOTYPING**
+> - **We are in an exploratory, creative phase.** None of the weapons, models, or animations have been finalized or approved yet.
+> - **DO NOT over-constrain models with overly rigid, bureaucratic, step-by-step instructions.** Over-prescriptive dogmatic rules stifle creativity and cause models to overthink instead of designing expressive art.
+> - **Principles & Intuition over Rigid Checklists**: Reference guides (`references/weapons/`, `references/characters/`) are meant as **inspirational archetypes and physical intuition** (e.g. "a scythe reaps horizontally with the crook leading, a zombie shambles and lunges"), NOT strict immutable recipes.
+> - **Creative Freedom First**: Give models room to invent unique silhouettes, unexpected voxel details, distinct palettes, and dynamic motion.
+> - **Production Pipeline Comes Later**: Strict assembly-line conveyor rules and rigorous production locks will be introduced later when actual game development begins. For now: rapid prototyping, visual exploration, and fun experimentation in the 3D gallery (`index.html`)!
 
-We build, rig, animate, visually audit, and showcase 3D weapons, armor, props, and creatures. Everything is procedurally synthesized via Python scripts inside **Blender 4.2+**, exported as game-ready **glTF 2.0 (`.glb`)**, pre-rendered for visual verification (`.png`), and embedded into a zero-CORS browser gallery (`index.html`).
+This repository (**`voxelAnimations`**) is an interactive 3D micro-voxel laboratory and combat gallery in the retro-voxel style of **Trove**, **Cube World**, and **Astra 6**. Everything is procedurally generated via Python in **Blender 4.2+** and viewable directly in `index.html`.
 
 ---
 

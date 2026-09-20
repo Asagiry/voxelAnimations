@@ -18,6 +18,13 @@ This project is an experimental laboratory and production pipeline for **retro m
 4. **Autonomous AI Skill System**:
    The project ships with [`skills/trove-voxel-artisan/`](skills/trove-voxel-artisan/), enabling autonomous AI agents to design, rig, and audit new weapons with zero human hand-holding.
 
+### Current Mindset: Creative Exploration (R&D Mode)
+> [!IMPORTANT]
+> **We are in an exploratory, creative phase.** None of the weapons, models, or animations have been finalized or approved yet.
+> - Avoid rigid dogmatic instructions: models need creative freedom to invent striking silhouettes and unique shapes.
+> - Reference guides are conceptual inspiration, not rigid recipes.
+> - Once the actual game production starts, we will establish an assembly-line conveyor pipeline. Until then, rapid prototyping and visual experimentation rule!
+
 ---
 
 ## 2. Directory Structure & File Map

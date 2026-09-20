@@ -1,11 +1,15 @@
 ---
 name: trove-voxel-artisan
 description: Universal abstract skill for authoring, rigging, animating, visually auditing, and exporting any 3D asset (weapons, characters, creatures, props) in authentic Trove / Cube World / Astra 6 micro-voxel style.
+argument-hint: "asset type (e.g. 'scythe', 'katana', 'zombie', 'greatsword', 'bow')"
 ---
 
 # Universal Trove Voxel Artisan Skill
 
 Transform any natural-language 3D asset request into production-ready, authentic micro-voxel 3D models with rigging, keyframe animations, and verified visual quality in Blender 4.2+.
+
+> [!NOTE]
+> **Creative R&D Sandbox Mode**: We are actively exploring visual styles, silhouettes, and animations. Treat all archetype references as **inspirational anatomy and physical intuition**, NOT rigid immutable recipes. Prioritize creative artistic freedom and expressive shapes over bureaucratic checklists.
 
 ---
 
@@ -30,7 +34,8 @@ When receiving a user request, **first identify the weapon/asset archetype** and
 
 | Archetype | Description | Reference Guide |
 |---|---|---|
-| **Scythes & Reapers** | Lateral reaping cuts, inner crook cutting edge, orbital gyro-rings. (Never propeller spins!) | [`references/weapons/scythe.md`](file:///C:/Users/Voimax/.gemini/config/skills/trove-voxel-artisan/references/weapons/scythe.md) |
+| **Humanoids & Undead Monsters** | Humanoid biped armature, asymmetrical decay, shambling walk cycle, predatory lunge & double-claw slash. | [`references/characters/humanoid-undead.md`](references/characters/humanoid-undead.md) |
+| **Scythes & Reapers** | Lateral reaping cuts, inner crook cutting edge, orbital gyro-rings. (Never propeller spins!) | [`references/weapons/scythe.md`](references/weapons/scythe.md) |
 | **Katanas & Iaido** | Sori curvature, hamon wave, tsuba, samegawa grip, supersonic drawing cut & zanshin freeze. | [`references/weapons/katana.md`](file:///C:/Users/Voimax/.gemini/config/skills/trove-voxel-artisan/references/weapons/katana.md) |
 | **Colossal Greatswords** | Monolithic slabs of raw iron, two-handed hoists, ground-shattering gravitational slams. | [`references/weapons/greatsword.md`](file:///C:/Users/Voimax/.gemini/config/skills/trove-voxel-artisan/references/weapons/greatsword.md) |
 | **Bows & Ranged** | Stepped recurve wings, elastic bowstring strain, supersonic release & damped vibration. | [`references/weapons/bow.md`](file:///C:/Users/Voimax/.gemini/config/skills/trove-voxel-artisan/references/weapons/bow.md) |
