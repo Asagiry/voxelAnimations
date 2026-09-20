@@ -233,6 +233,7 @@
   <script src="./assets/Gemini3.7/gemini3_7_data.js"></script>
   <script src="./assets/gemini36/gemini36_data.js"></script>
   <script src="./assets/GeminiPro/GeminiPro_data.js"></script>
+  <script src="./assets/zombie/zombie_data.js"></script>
 
   <script type="importmap">
     {
@@ -248,10 +249,11 @@
   <div class="ui-overlay">
     <!-- Asset Selector Tabs -->
     <div class="asset-tabs">
+      <button class="tab-btn active" data-asset="zombie">🧟 Зомби (3.8 Flash)</button>
       <button class="tab-btn" data-asset="claude_opus">🌌 Коса (Opus 4.6)</button>
       <button class="tab-btn" data-asset="claude_sonnet">🌌 Коса (Sonnet 4.6)</button>
       <button class="tab-btn" data-asset="gemini38">🌌 Коса (Gemini 3.8)</button>
-      <button class="tab-btn active" data-asset="gemini37">🌾 Коса Жатвы (Gemini 3.7)</button>
+      <button class="tab-btn" data-asset="gemini37">🌾 Коса Жатвы (Gemini 3.7)</button>
       <button class="tab-btn" data-asset="gemini36">🌌 Коса (Gemini 3.6)</button>
       <button class="tab-btn" data-asset="gemini_pro">🌌 Коса (3.1 Pro)</button>
       <button class="tab-btn" data-asset="bow">🏹 Лук</button>
@@ -652,10 +654,36 @@
           if (f < 40) return "Фаза: Фиксация клинка";
           return "Фаза: Возврат в исходное положение";
         }
+      },
+      zombie: {
+        title: "🧟 Нежить-Зомби (Gemini 3.8 Flash High)",
+        desc: "Аутентичный воксельный гуманоид нежити в стиле Trove / Cube World: асимметричный череп с обнаженной костью, светящиеся желто-зеленые глаза, оскаленные зубы, открытая грудная клетка с ребрами, костяное предплечье с когтями и рваные лохмотья.",
+        getBase64: () => window.ZOMBIE_BASE64,
+        fallback: './assets/zombie/zombie.glb',
+        actionName: "💥 Двойной Удар Когтями!",
+        actionTime: 1.37,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.014м (1.4 см/куб)"],
+          ["Рост персонажа:", "44 вокселя (~0.62м)"],
+          ["Скелетная оснастка:", "18 костей (Biped Rig + Claws)"],
+          ["Материалы:", "Гниющая плоть, кость, лохмотья, светящиеся глаза"],
+          ["Анимация:", "Шатающаяся походка (1-40) → Выпад когтями (41-80)"]
+        ],
+        rimColor: 0x44ff22,
+        fillColor: 0x1e3a1e,
+        camPos: [0.7, 0.45, 1.1],
+        camTarget: [0, 0.32, 0],
+        stateMap: (f) => {
+          if (f <= 40) return "Фаза: Ковыляющая хромота и рыскание (Shambling Walk Loop)";
+          if (f < 52) return "Фаза: Подготовка — замах и оскал челюстей";
+          if (f <= 58) return "💥 ЯРОСТНЫЙ ВЫПАД И ДВОЙНОЙ УДАР КОГТЯМИ!";
+          if (f < 68) return "Фаза: Сверхинерция и фиксация после удара (Hit-stop / Zanshin)";
+          return "Фаза: Восстановление равновесия и возврат в стойку";
+        }
       }
     };
 
-    let currentAssetKey = 'gemini37';
+    let currentAssetKey = 'zombie';
     let currentModel = null;
     let mixer = null;
     let mainAction = null;
@@ -860,7 +888,7 @@
     }
     animate();
 
-    loadAsset('gemini38');
+    loadAsset('zombie');
   </script>
 </body>
 </html>
