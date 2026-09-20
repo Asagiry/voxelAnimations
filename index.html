@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trove Voxel 3D Asset Showcase</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      user-select: none;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+
+    /* Left Control & Info Panel */
+    .ui-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      padding: 22px 24px;
+      max-width: 440px;
+      box-shadow: 0 24px 48px rgba(0,0,0,0.7), 0 0 35px rgba(56, 189, 248, 0.12);
+      z-index: 10;
+    }
+
+    /* Asset Selector Tabs */
+    .asset-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #94a3b8;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: #f8fafc;
+      transform: translateY(-1px);
+    }
+    .tab-btn.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: white;
+      box-shadow: 0 0 16px rgba(2, 132, 199, 0.5);
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .badge-cyan { background: #0284c7; color: #f0fdf4; }
+    .badge-purple { background: #7c3aed; color: #faf5ff; }
+    .badge-amber { background: #d97706; color: #fffbeb; }
+    .badge-blood { background: #991b1b; color: #fef2f2; }
+
+    h1 {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    p {
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+    .specs-list {
+      list-style: none;
+      font-size: 11.5px;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .specs-list li {
+      display: flex;
+      justify-content: space-between;
+    }
+    .specs-list span.val {
+      font-weight: 600;
+      color: #38bdf8;
+      font-family: monospace;
+    }
+
+    /* Animation Timeline Bar */
+    .timeline-container {
+      margin-bottom: 12px;
+    }
+    .timeline-label {
+      font-size: 11px;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .timeline-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+    .timeline-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8, #a855f7);
+      transition: width 0.05s linear;
+    }
+
+    .btn-row {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    button.ctrl-btn {
+      background: #0284c7;
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    button.ctrl-btn:hover {
+      background: #0369a1;
+      transform: translateY(-1px);
+    }
+    button.btn-accent {
+      background: #7c3aed;
+    }
+    button.btn-accent:hover {
+      background: #6d28d9;
+    }
+    button.btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e2e8f0;
+    }
+    button.btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .controls-hint {
+      font-size: 11px;
+      color: #94a3b8;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+
+    #loading-indicator {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 10;
+    }
+  </style>
+
+  <!-- Preloaded Data URIs for offline zero-CORS file:// support -->
+  <script src="./assets/magic_bow/bow_model_data.js"></script>
+  <script src="./assets/flame_sword/sword_model_data.js"></script>
+  <script src="./assets/guts_sword_flash/guts_sword_data.js"></script>
+  <script src="./assets/katana_flash/katana_data.js"></script>
+  <script src="./assets/katana_38_flash/katana_data.js"></script>
+  <script src="./assets/katana_pro/katana_data.js"></script>
+  <script src="./assets/claude_opus_46/claude_opus_46_data.js"></script>
+  <script src="./assets/ClaudeSonnet4.6/ClaudeSonnet4.6_data.js"></script>
+  <script src="./assets/Gemini3.8/Gemini3.8_data.js"></script>
+  <script src="./assets/Gemini3.7/gemini3_7_data.js"></script>
+  <script src="./assets/gemini36/gemini36_data.js"></script>
+  <script src="./assets/GeminiPro/GeminiPro_data.js"></script>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <div class="ui-overlay">
+    <!-- Asset Selector Tabs -->
+    <div class="asset-tabs">
+      <button class="tab-btn" data-asset="claude_opus">🌌 Коса (Opus 4.6)</button>
+      <button class="tab-btn" data-asset="claude_sonnet">🌌 Коса (Sonnet 4.6)</button>
+      <button class="tab-btn" data-asset="gemini38">🌌 Коса (Gemini 3.8)</button>
+      <button class="tab-btn active" data-asset="gemini37">🌾 Коса Жатвы (Gemini 3.7)</button>
+      <button class="tab-btn" data-asset="gemini36">🌌 Коса (Gemini 3.6)</button>
+      <button class="tab-btn" data-asset="gemini_pro">🌌 Коса (3.1 Pro)</button>
+      <button class="tab-btn" data-asset="bow">🏹 Лук</button>
+      <button class="tab-btn" data-asset="flame_sword">🔥 Меч</button>
+      <button class="tab-btn" data-asset="guts">⚔️ Гатс</button>
+      <button class="tab-btn" data-asset="katana_flash">🗡️ Катана (3.7)</button>
+      <button class="tab-btn" data-asset="katana_38">⚡ Катана (3.8)</button>
+      <button class="tab-btn" data-asset="katana_pro">🏯 Катана (3.1)</button>
+    </div>
+
+    <div class="badge-row" id="asset-badges">
+      <span class="badge badge-cyan">Trove Micro-Voxel</span>
+      <span class="badge badge-purple">Skeletal Rig</span>
+      <span class="badge badge-amber">Cycles Verified</span>
+    </div>
+
+    <h1 id="asset-title">🏹 Небесный Магический Лук</h1>
+    <p id="asset-desc">Аутентичный воксельный лук со ступенчатыми кристальными крыльями дракона, эластичной тетивой и алмазной стрелой.</p>
+    
+    <ul class="specs-list" id="asset-specs">
+      <li><span>Сетка (Micro-Voxel):</span> <span class="val">0.012м (1.2 см/куб)</span></li>
+      <li><span>Размер:</span> <span class="val">~104 вокселя (1.25м)</span></li>
+      <li><span>Материалы:</span> <span class="val">Обсидиан, золото, циан, руны</span></li>
+      <li><span>Анимация:</span> <span class="val">Натяжение → Выстрел → Снап</span></li>
+    </ul>
+
+    <div class="timeline-container">
+      <div class="timeline-label">
+        <span id="anim-state-text">Фаза: Загрузка модели...</span>
+        <span id="anim-time-text">0.0s / 2.0s</span>
+      </div>
+      <div class="timeline-bar">
+        <div class="timeline-fill" id="timeline-fill"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="ctrl-btn" id="btn-play">⏸️ Пауза</button>
+      <button class="ctrl-btn btn-accent" id="btn-action">⚡ Действие!</button>
+      <button class="ctrl-btn btn-secondary" id="btn-speed">Скорость: 1.0x</button>
+      <button class="ctrl-btn btn-secondary" id="btn-spin">Вращение: ВКЛ</button>
+    </div>
+
+    <div class="controls-hint">
+      <span>🖱️ <b>ЛКМ + Перетаскивание:</b> Свободный обзор 360°</span>
+      <span>📜 <b>Колесо мыши:</b> Зум к микро-вокселям</span>
+      <span>🖱️ <b>ПКМ:</b> Смещение камеры</span>
+    </div>
+  </div>
+
+  <div id="loading-indicator">✨ Загрузка модели...</div>
+  <div id="canvas-container"></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    const container = document.getElementById('canvas-container');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(2.4, 0.8, 2.2);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.target.set(0, 0.0, 0);
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 1.2;
+
+    // Lights
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x0f172a, 1.2);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfffaed, 3.8);
+    sunLight.position.set(4, 6, 4);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight);
+
+    const rimLight = new THREE.DirectionalLight(0x00f0ff, 3.2);
+    rimLight.position.set(-4, 3, -3);
+    scene.add(rimLight);
+
+    const fillLight = new THREE.DirectionalLight(0xa855f7, 2.0);
+    fillLight.position.set(3, -2, -3);
+    scene.add(fillLight);
+
+    // Asset Catalog
+    const ASSETS = {
+      bow: {
+        title: "🏹 Небесный Магический Лук",
+        desc: "Аутентичный воксельный лук со ступенчатыми кристальными крыльями дракона, эластичной тетивой и алмазной стрелой.",
+        getBase64: () => window.CELESTIAL_BOW_BASE64,
+        fallback: './assets/magic_bow/celestial_magic_bow.glb',
+        actionName: "⚡ Выстрел!",
+        actionTime: 1.08,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Размер:", "~104 вокселя (1.25м)"],
+          ["Материалы:", "Обсидиан, золото, циан, руны"],
+          ["Анимация:", "Натяжение → Выстрел → Снап"]
+        ],
+        rimColor: 0x00f0ff,
+        fillColor: 0xa855f7,
+        camPos: [2.4, 0.8, 2.2],
+        camTarget: [0, 0.0, 0],
+        stateMap: (f) => {
+          if (f < 12) return "Фаза: Свободное парение (Idle)";
+          if (f < 34) return "Фаза: Натяжение тетивы и изгиб дуг";
+          if (f < 36) return "⚡ ВЫСТРЕЛ! Спуск стрелы и отдача";
+          if (f < 44) return "Фаза: Затухающая вибрация тетивы";
+          return "Фаза: Полёт стрелы и материализация новой";
+        }
+      },
+      flame_sword: {
+        title: "🔥 Огненный Двуручный Меч",
+        desc: "Колоссальный пламенный двуручник с лавовыми каналами, золотой драконьей гардой и вихрем танцующего пламени.",
+        getBase64: () => window.INFERNAL_SWORD_BASE64,
+        fallback: './assets/flame_sword/infernal_flame_sword.glb',
+        actionName: "💥 Огненный Удар!",
+        actionTime: 0.90,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Высота меча:", "108 вокселей (~1.30м)"],
+          ["Пламя:", "Двухсторонний вихрь + спирали"],
+          ["Анимация:", "Колыхание → Замах → Сокрушительный удар"]
+        ],
+        rimColor: 0xff4500,
+        fillColor: 0x38bdf8,
+        camPos: [2.5, 0.6, 2.4],
+        camTarget: [0, 0.35, 0],
+        stateMap: (f) => {
+          if (f < 21) return "Фаза: Живое колыхание огня (Idle Surge)";
+          if (f < 26) return "Фаза: Концентрация жара и замах";
+          if (f < 35) return "💥 ОГНЕННЫЙ УДАР! Вспышка пламени";
+          return "Фаза: Вихревые искры и возврат в стойку";
+        }
+      },
+      guts: {
+        title: "⚔️ Меч Гатса «Убийца Драконов»",
+        desc: "«Это было слишком большим, чтобы называться мечом... Это был монолитный кусок сырого железа». Кованая гарда с заклепками, бинтовая рукоять, сколы от битв с апостолами и взрыв каменных осколков.",
+        getBase64: () => window.GUTS_SWORD_FLASH_BASE64,
+        fallback: './assets/guts_sword_flash/guts_sword.glb',
+        actionName: "💥 Berserk Slam!",
+        actionTime: 0.96,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Высота меча:", "122 вокселя (~1.46м)"],
+          ["Материалы:", "Сырая сталь (Met 0.85, Rough 0.35), кровь, бинты"],
+          ["Анимация:", "Стойка на плече → Замах → Удар в гранит → Осколки"]
+        ],
+        rimColor: 0xff3300,
+        fillColor: 0x38bdf8,
+        camPos: [2.4, 1.1, 2.4],
+        camTarget: [0, 0.55, 0],
+        stateMap: (f) => {
+          if (f < 16) return "Фаза: Стойка на плече (Heroic Shoulder Rest)";
+          if (f < 29) return "Фаза: Могучий подъём и замах двумя руками";
+          if (f < 34) return "💥 СОКРУШИТЕЛЬНЫЙ УДАР В ГРАНИТ! Взрыв осколков и искр";
+          if (f < 43) return "Фаза: Вибрация клинка и оседание каменной шрапнели";
+          return "Фаза: Извлечение лезвия из трещины и возврат на плечо";
+        }
+      },
+      katana_flash: {
+        title: "🗡️ Катана «Crescent Flash» (Gemini 3.7 Flash)",
+        desc: "Аутентичная японская катана в стиле Trove/Cube World: изящный изгиб сори, кристаллический волнистый хамон, черненая гарда цуба сукаси с золотым ободом, рукоять с белой кожей ската самэгава, золотые драконьи мэнуки и непрерывный серповидный шлейф атаки.",
+        getBase64: () => window.KATANA_FLASH_BASE64,
+        fallback: './assets/katana_flash/katana.glb',
+        actionName: "⚡ Iaido Crescent Slash!",
+        actionTime: 2.0,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Длина клинка:", "93 вокселя (~1.12м)"],
+          ["Материалы:", "Тамахаганэ, хамон, самэгава, золото, люминесцентный циан"],
+          ["Анимация:", "Стойка Иайдо → Серповидный шлейф → Чибуруи"]
+        ],
+        rimColor: 0x00f0ff,
+        fillColor: 0xf59e0b,
+        camPos: [1.8, 0.6, 1.8],
+        camTarget: [0, 0.45, 0],
+        stateMap: (f) => {
+          if (f < 16) return "Фаза: Стойка концентрации (Ready Focus Stance)";
+          if (f < 25) return "⚡ СВЕРХСКОРОСТНОЙ СЕРПОВИДНЫЙ РАЗРЕЗ (Iaido Slash)!";
+          if (f < 37) return "Фаза: Затухание шлейфа и фиксация (Zanshin)";
+          if (f < 49) return "Фаза: Ритуальное стряхивание клинка (Chiburui)";
+          return "Фаза: Плавный возврат в исходную позицию (Noto)";
+        }
+      },
+      katana_38: {
+        title: "⚡ Катана Иайдо (Gemini 3.8 Flash High)",
+        desc: "Аутентичная японская катана/одати в стиле Trove/Cube World: изящный изгиб сори, кристаллический волнистый хамон, гарда цуба с просечным узором сукаси, рукоять с белой кожей ската самэгава, золотые мэнуки и ослепительный серповидный шлейф атаки.",
+        getBase64: () => window.KATANA_38_BASE64,
+        fallback: './assets/katana_38_flash/katana.glb',
+        actionName: "⚡ Iaido Slash!",
+        actionTime: 2.0,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Длина клинка:", "96 вокселей (~1.15м)"],
+          ["Материалы:", "Тамахаганэ, золото, хамон, самэгава, циан"],
+          ["Анимация:", "Стойка Иайдо → Вспышка разреза → Чибуруи"]
+        ],
+        rimColor: 0x00d4ff,
+        fillColor: 0xf59e0b,
+        camPos: [1.8, 0.6, 1.8],
+        camTarget: [0, 0.45, 0],
+        stateMap: (f) => {
+          if (f < 16) return "Фаза: Стойка концентрации (Ready Focus Stance)";
+          if (f < 25) return "⚡ СВЕРХСКОРОСТНОЙ СЕРПОВИДНЫЙ РАЗРЕЗ (Iaido Slash)!";
+          if (f < 37) return "Фаза: Затухание шлейфа и боевая фиксация (Zanshin)";
+          if (f < 49) return "Фаза: Резкое стряхивание клинка (Chiburui)";
+          return "Фаза: Благородный возврат в исходную позицию (Noto)";
+        }
+      },
+      claude_opus: {
+        title: "🌌 Астральная Коса (Claude Opus 4.6)",
+        desc: "Грандиозная Астральная Коса на ритуальном руническом пьедестале: армиллярная сфера Бездны, концентрические рунические диски, золоченый обсидиан и колоссальное астральное лезвие с круговой атакой.",
+        getBase64: () => window.CLAUDE_OPUS_46_BASE64,
+        fallback: './assets/claude_opus_46/claude_opus_46.glb',
+        actionName: "🌀 Ritual Void Vortex!",
+        actionTime: 1.5,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Высота косы:", "~112 вокселей (~1.34м)"],
+          ["Пьедестал:", "Концентрический рунический круг"],
+          ["Материалы:", "Обсидиан, темное золото, астральный циан, руны"],
+          ["Анимация:", "Ритуальное парение → Армиллярный вихрь → Удар"]
+        ],
+        rimColor: 0xa855f7,
+        fillColor: 0x00f0ff,
+        camPos: [2.3, 1.1, 2.3],
+        camTarget: [0, 0.45, 0],
+        stateMap: (f) => {
+          if (f < 20) return "Фаза: Ритуальное парение и резонанс рун";
+          if (f < 35) return "Фаза: Ускорение армиллярных колец и замах";
+          if (f < 50) return "🌀 СОКРУШИТЕЛЬНЫЙ ВИХРЬ ПУСТОТЫ (Ritual Vortex)!";
+          return "Фаза: Возврат энергии Бездны в пьедестал";
+        }
+      },
+      claude_sonnet: {
+        title: "🌌 Астральная Коса (Claude Sonnet 4.6)",
+        desc: "Изящная и смертоносная коса Пустоты: дугообразный хребет с астральными шипами, двойные орбитальные рунические кольца и стремительный рассекающий взмах.",
+        getBase64: () => window.CLAUDE_SONNET_46_BASE64,
+        fallback: './assets/ClaudeSonnet4.6/ClaudeSonnet4.6.glb',
+        actionName: "🌀 Void Sweep!",
+        actionTime: 1.2,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Высота косы:", "~102 вокселя (~1.22м)"],
+          ["Орбиты:", "Двойные концентрические рунические кольца"],
+          ["Материалы:", "Обсидиановая сталь, аметистовый шлейф, циан"],
+          ["Анимация:", "Орбитальное вращение → Быстрый круговой срез"]
+        ],
+        rimColor: 0x00f0ff,
+        fillColor: 0xa855f7,
+        camPos: [2.2, 0.8, 2.2],
+        camTarget: [0, 0.45, 0],
+        stateMap: (f) => {
+          if (f < 18) return "Фаза: Орбитальное вращение рунических колец";
+          if (f < 32) return "Фаза: Замах и концентрация сингулярности";
+          if (f < 45) return "🌀 КРУГОВОЙ ВИХРЕВОЙ РАССЕКАЮЩИЙ УДАР (Void Sweep)!";
+          return "Фаза: Стабилизация орбит и возврат в стойку";
+        }
+      },
+      gemini38: {
+        title: "🌌 Астральная Коса Пустоты (Gemini 3.8)",
+        desc: "Аутентичное легендарное оружие Бездны в стиле Trove/Cube World: грандиозное древко с обсидиановым противовесом-полумесяцем, золотыми зажимами и спиральными руническими каналами, светящееся Око Пустоты, двойные гироскопические рунические кольца, колоссальное серповидное лезвие с кристальной циановой кромкой и сокрушительная 360° круговая вихревая атака.",
+        getBase64: () => window.GEMINI3_8_BASE64,
+        fallback: './assets/Gemini3.8/Gemini3.8.glb',
+        actionName: "🌀 Void Vortex!",
+        actionTime: 1.26,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Высота косы:", "~105 вокселей (~1.26м)"],
+          ["Диаметр вихря:", "~72 вокселя (~0.86м)"],
+          ["Материалы:", "Сталь Пустоты, обсидиан, золото, циан, астральный пурпур"],
+          ["Анимация:", "Гироскопическое парение → Замах → 360° Вихрь Пустоты"]
+        ],
+        rimColor: 0x00f0ff,
+        fillColor: 0xa855f7,
+        camPos: [2.2, 0.9, 2.2],
+        camTarget: [0, 0.45, 0],
+        stateMap: (f) => {
+          if (f < 25) return "Фаза: Свободное астральное парение и гироскопическое вращение колец";
+          if (f < 33) return "Фаза: Концентрация энергии Бездны и мощный замах";
+          if (f < 45) return "🌀 360° СОКРУШИТЕЛЬНЫЙ ВИХРЬ ПУСТОТЫ (Void Vortex)!";
+          if (f < 54) return "Фаза: Рассеивание вихря и фиксация клинка (Zanshin)";
+          return "Фаза: Плавный возврат в исходную позицию парения";
+        }
+      },
+      gemini37: {
+        title: "🌾 Астральная Коса Жатвы (Gemini 3.7)",
+        desc: "Легендарная воксельная коса Бездны с аутентичным боковым покосом: монолитное древко из обсидиана, Око Пустоты, вращающиеся рунические кольца, массивное изогнутое лезвие и сокрушительный горизонтальный срез широким взмахом (Reaping Sweep).",
+        getBase64: () => window.GEMINI37_BASE64,
+        fallback: './assets/Gemini3.7/gemini3_7.glb',
+        actionName: "🌾 Боковой Покос Пустоты!",
+        actionTime: 1.0,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Размер косы:", "~105 вокселей (~1.26м)"],
+          ["Размах среза:", "150° дуговой горизонтальный покос"],
+          ["Материалы:", "Обсидиан Пустоты, платина, золото, плазма, руны"],
+          ["Анимация:", "Парение → Замах назад → Сокрушительный срез боком → Zanshin"]
+        ],
+        rimColor: 0x00f0ff,
+        fillColor: 0xa855f7,
+        camPos: [2.2, 0.9, 2.2],
+        camTarget: [0, 0.45, 0],
+        stateMap: (f) => {
+          if (f < 14) return "Фаза: Свободное астральное парение и орбитальный гул рун (Idle)";
+          if (f < 22) return "Фаза: Высокий замах назад и концентрация энергии Жатвы (Wind-up)";
+          if (f < 28) return "🌾 СОКРУШИТЕЛЬНЫЙ ГОРИЗОНТАЛЬНЫЙ ПОКОС БОКОМ (Reaping Strike)!";
+          if (f < 36) return "Фаза: Фиксация клинка, разрыв пространства и отдача (Zanshin)";
+          return "Фаза: Благородный дуговой возврат в боевую стойку парения";
+        }
+      },
+      gemini36: {
+        title: "🌌 Астральная Коса (Gemini 3.6 Flash)",
+        desc: "Коса-посох Пустоты в аутентичном воксельном стиле: сияющая корона Бездны, горизонтальное ореольное кольцо, руническое древко и спиральные циановые вихри круговой атаки.",
+        getBase64: () => window.GEMINI36_BASE64,
+        fallback: './assets/gemini36/gemini36.glb',
+        actionName: "🌀 Void Slash!",
+        actionTime: 1.2,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Длина косы:", "~100 вокселей (~1.20м)"],
+          ["Ореол:", "Горизонтальное руническое кольцо"],
+          ["Материалы:", "Обсидиан, темное золото, циан, астральный огонь"],
+          ["Анимация:", "Парение ореола → Замах → Круговой вихревой разрез"]
+        ],
+        rimColor: 0x00f0ff,
+        fillColor: 0xa855f7,
+        camPos: [2.2, 0.8, 2.2],
+        camTarget: [0, 0.45, 0],
+        stateMap: (f) => {
+          if (f < 18) return "Фаза: Парение и пульсация ореольного кольца";
+          if (f < 30) return "Фаза: Замах и концентрация циановой энергии";
+          if (f < 45) return "🌀 КРУГОВОЙ ВИХРЕВОЙ УДАР (Void Slash)!";
+          return "Фаза: Рассеивание вихря и возврат в стойку";
+        }
+      },
+      gemini_pro: {
+        title: "🌌 Астральная Коса (Gemini 3.1 Pro)",
+        desc: "Экспериментальная модель Косы Пустоты от Gemini 3.1 Pro: светящийся рунический нимб, угловатое кристаллическое лезвие и вихревые воксельные искры.",
+        getBase64: () => window.GEMINI_PRO_BASE64 || window.ASSET_NAME_BASE64,
+        fallback: './assets/GeminiPro/GeminiPro.glb',
+        actionName: "🌀 Void Slash!",
+        actionTime: 1.2,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Длина косы:", "~95 вокселей (~1.14м)"],
+          ["Материалы:", "Сталь Бездны, рунический нимб, плазма"],
+          ["Анимация:", "Вращение нимба → Замах → Удар"]
+        ],
+        rimColor: 0x38bdf8,
+        fillColor: 0x818cf8,
+        camPos: [2.0, 0.8, 2.0],
+        camTarget: [0, 0.45, 0],
+        stateMap: (f) => {
+          if (f < 16) return "Фаза: Стойка готовности и вращение нимба";
+          if (f < 28) return "🌀 АТАКА: Круговой взмах косой";
+          return "Фаза: Возврат в исходное положение";
+        }
+      },
+      katana_pro: {
+        title: "🏯 Катана Иайдо (Gemini 3.1 Pro)",
+        desc: "Японская катана в стиле Trove: строгий клинок, квадратная цуба, светлая оплетка рукояти и бирюзовые вспышки шлейфа атаки.",
+        getBase64: () => window.KATANA_PRO_BASE64,
+        fallback: './assets/katana_pro/katana.glb',
+        actionName: "⚡ Iaido Slash!",
+        actionTime: 2.0,
+        specs: [
+          ["Сетка (Micro-Voxel):", "0.012м (1.2 см/куб)"],
+          ["Длина клинка:", "88 вокселей (~1.05м)"],
+          ["Материалы:", "Сталь, белая оплетка, циан"],
+          ["Анимация:", "Стойка → Взмах → Возврат"]
+        ],
+        rimColor: 0x38bdf8,
+        fillColor: 0x818cf8,
+        camPos: [1.8, 0.6, 1.8],
+        camTarget: [0, 0.45, 0],
+        stateMap: (f) => {
+          if (f < 16) return "Фаза: Стойка готовности";
+          if (f < 28) return "⚡ АТАКА: Быстрый взмах катаной";
+          if (f < 40) return "Фаза: Фиксация клинка";
+          return "Фаза: Возврат в исходное положение";
+        }
+      }
+    };
+
+    let currentAssetKey = 'gemini37';
+    let currentModel = null;
+    let mixer = null;
+    let mainAction = null;
+    let isPlaying = true;
+    let speedIdx = 2;
+    const speeds = [0.25, 0.5, 1.0, 1.5];
+
+    const timelineFill = document.getElementById('timeline-fill');
+    const animStateText = document.getElementById('anim-state-text');
+    const animTimeText = document.getElementById('anim-time-text');
+    const btnAction = document.getElementById('btn-action');
+
+    const loader = new GLTFLoader();
+
+    function loadAsset(key) {
+      const asset = ASSETS[key];
+      if (!asset) return;
+      currentAssetKey = key;
+
+      loadingIndicator.style.display = 'flex';
+      loadingIndicator.innerText = `✨ Загрузка: ${asset.title}...`;
+
+      document.getElementById('asset-title').innerText = asset.title;
+      document.getElementById('asset-desc').innerText = asset.desc;
+      btnAction.innerText = asset.actionName;
+
+      const specsContainer = document.getElementById('asset-specs');
+      specsContainer.innerHTML = '';
+      asset.specs.forEach(([k, v]) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${k}</span> <span class="val">${v}</span>`;
+        specsContainer.appendChild(li);
+      });
+
+      rimLight.color.setHex(asset.rimColor);
+      fillLight.color.setHex(asset.fillColor);
+      camera.position.set(...asset.camPos);
+      controls.target.set(...asset.camTarget);
+
+      if (currentModel) {
+        scene.remove(currentModel);
+        currentModel = null;
+      }
+      if (mixer) {
+        mixer.stopAllAction();
+        mixer = null;
+      }
+
+      function onLoaded(gltf) {
+        currentModel = gltf.scene;
+        currentModel.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            if (child.material && child.material.emissive) {
+              child.material.emissiveIntensity = 2.0;
+            }
+          }
+        });
+        scene.add(currentModel);
+
+        if (gltf.animations && gltf.animations.length > 0) {
+          mixer = new THREE.AnimationMixer(currentModel);
+          mainAction = mixer.clipAction(gltf.animations[0]);
+          mainAction.setLoop(THREE.LoopRepeat);
+          mainAction.play();
+          mainAction.paused = !isPlaying;
+          mixer.timeScale = speeds[speedIdx];
+        }
+
+        loadingIndicator.style.display = 'none';
+      }
+
+      const isHttp = window.location.protocol.startsWith('http');
+      let base64Data = (typeof asset.getBase64 === 'function' ? asset.getBase64() : asset.url);
+      if (base64Data && typeof base64Data === 'string' && !base64Data.startsWith('data:') && !base64Data.startsWith('http') && !base64Data.startsWith('.')) {
+        base64Data = 'data:model/gltf-binary;base64,' + base64Data;
+      }
+      const primaryUrl = (isHttp ? asset.fallback : (base64Data || asset.fallback)) || asset.fallback;
+      const secondaryUrl = (primaryUrl === asset.fallback ? (base64Data || asset.fallback) : asset.fallback);
+
+      loader.load(
+        primaryUrl,
+        (gltf) => onLoaded(gltf),
+        (xhr) => {
+          if (xhr.lengthComputable && xhr.total > 0) {
+            const pct = Math.round((xhr.loaded / xhr.total) * 100);
+            loadingIndicator.innerText = `✨ Загрузка: ${asset.title} (${pct}%)...`;
+          }
+        },
+        (err) => {
+          console.warn("Primary load failed, trying secondary:", secondaryUrl, err);
+          if (secondaryUrl && secondaryUrl !== primaryUrl) {
+            loader.load(secondaryUrl, (gltf) => onLoaded(gltf), undefined, (e) => {
+              console.error("Fatal load error:", e);
+              loadingIndicator.style.display = 'flex';
+              loadingIndicator.innerHTML = `❌ Ошибка загрузки. Откройте через <a href="http://localhost:8080/index.html" style="color:#38bdf8;text-decoration:underline;">http://localhost:8080</a>`;
+            });
+          } else {
+            loadingIndicator.style.display = 'flex';
+            loadingIndicator.innerHTML = `❌ Ошибка загрузки. Откройте через <a href="http://localhost:8080/index.html" style="color:#38bdf8;text-decoration:underline;">http://localhost:8080</a>`;
+          }
+        }
+      );
+    }
+
+    // Drag & Drop external GLB files for instant preview
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer && e.dataTransfer.files[0];
+      if (file && (file.name.endsWith('.glb') || file.name.endsWith('.gltf'))) {
+        loadingIndicator.style.display = 'flex';
+        loadingIndicator.innerText = `✨ Загрузка файла: ${file.name}...`;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          loader.parse(evt.target.result, '', (gltf) => {
+            document.getElementById('asset-title').innerText = `📂 ${file.name}`;
+            document.getElementById('asset-desc').innerText = `Пользовательский файл (${(file.size / 1024 / 1024).toFixed(2)} MB), загружен локально.`;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            onLoaded(gltf);
+          });
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadAsset(btn.dataset.asset);
+      });
+    });
+
+    const btnPlay = document.getElementById('btn-play');
+    btnPlay.addEventListener('click', () => {
+      if (!mainAction) return;
+      isPlaying = !isPlaying;
+      mainAction.paused = !isPlaying;
+      btnPlay.innerHTML = isPlaying ? '⏸️ Пауза' : '▶️ Старт';
+    });
+
+    btnAction.addEventListener('click', () => {
+      if (!mainAction) return;
+      const asset = ASSETS[currentAssetKey];
+      mainAction.time = asset.actionTime || 0.5;
+      if (!isPlaying) {
+        isPlaying = true;
+        mainAction.paused = false;
+        btnPlay.innerHTML = '⏸️ Пауза';
+      }
+    });
+
+    const btnSpeed = document.getElementById('btn-speed');
+    btnSpeed.addEventListener('click', () => {
+      speedIdx = (speedIdx + 1) % speeds.length;
+      const spd = speeds[speedIdx];
+      btnSpeed.innerText = `Скорость: ${spd}x`;
+      if (mixer) mixer.timeScale = spd;
+    });
+
+    const btnSpin = document.getElementById('btn-spin');
+    let autoSpin = true;
+    btnSpin.addEventListener('click', () => {
+      autoSpin = !autoSpin;
+      controls.autoRotate = autoSpin;
+      btnSpin.innerText = `Вращение: ${autoSpin ? 'ВКЛ' : 'ВЫКЛ'}`;
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+
+      if (mixer) {
+        mixer.update(delta);
+        if (mainAction && mainAction.getClip()) {
+          const duration = mainAction.getClip().duration;
+          const curTime = mainAction.time % duration;
+          const pct = (curTime / duration) * 100;
+          timelineFill.style.width = `${pct}%`;
+          animTimeText.innerText = `${curTime.toFixed(2)}s / ${duration.toFixed(2)}s`;
+
+          const frame = Math.floor((curTime / duration) * 60);
+          const asset = ASSETS[currentAssetKey];
+          if (asset && asset.stateMap) {
+            animStateText.innerText = asset.stateMap(frame);
+          }
+        }
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    loadAsset('gemini38');
+  </script>
+</body>
+</html>

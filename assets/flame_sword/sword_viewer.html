@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infernal Flame Sword - Trove Micro-Voxel 3D Viewer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at center, #1a0808 0%, #080305 100%);
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      user-select: none;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+    .ui-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(18, 10, 14, 0.88);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(249, 115, 22, 0.3);
+      border-radius: 14px;
+      padding: 20px 24px;
+      max-width: 400px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.7), 0 0 30px rgba(234, 88, 12, 0.15);
+      z-index: 10;
+    }
+    .badge-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .badge-flame { background: #ea580c; color: #fff7ed; box-shadow: 0 0 10px rgba(234, 88, 12, 0.5); }
+    .badge-gold { background: #d97706; color: #fffbeb; }
+    .badge-dark { background: #331414; color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #fed7aa;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    p {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #fdba74;
+      margin-bottom: 12px;
+    }
+    .specs-list {
+      list-style: none;
+      font-size: 12px;
+      color: #fed7aa;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      border: 1px solid rgba(249, 115, 22, 0.15);
+    }
+    .specs-list li {
+      display: flex;
+      justify-content: space-between;
+    }
+    .specs-list span.val {
+      font-weight: 600;
+      color: #fb923c;
+      font-family: monospace;
+    }
+
+    /* Animation Timeline Bar */
+    .timeline-container {
+      margin-bottom: 14px;
+    }
+    .timeline-label {
+      font-size: 11px;
+      color: #fdba74;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .timeline-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      cursor: pointer;
+      position: relative;
+    }
+    .timeline-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ea580c, #f59e0b, #ef4444);
+      border-radius: 4px;
+      transition: width 0.04s linear;
+      box-shadow: 0 0 10px #ea580c;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    button {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffedd5;
+      border: 1px solid rgba(249, 115, 22, 0.3);
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:hover {
+      background: rgba(249, 115, 22, 0.25);
+      border-color: rgba(249, 115, 22, 0.6);
+      transform: translateY(-1px);
+    }
+    button.btn-accent {
+      background: linear-gradient(135deg, #ea580c, #dc2626);
+      color: #ffffff;
+      border: none;
+      box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4);
+    }
+    button.btn-accent:hover {
+      background: linear-gradient(135deg, #f97316, #ef4444);
+      box-shadow: 0 6px 18px rgba(234, 88, 12, 0.6);
+    }
+
+    .controls-hint {
+      font-size: 11px;
+      color: #9a3412;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 10px;
+    }
+
+    #loading-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 18px;
+      font-weight: 600;
+      color: #ea580c;
+      text-shadow: 0 0 20px rgba(234, 88, 12, 0.8);
+      z-index: 5;
+    }
+  </style>
+
+  <!-- Base64 Fallback Data URI -->
+  <script src="sword_model_data.js"></script>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <div class="ui-overlay">
+    <div class="badge-row">
+      <span class="badge badge-flame">Trove Micro-Voxel</span>
+      <span class="badge badge-gold">Dragon Star-Metal</span>
+      <span class="badge badge-dark">60 FPS Skeletal</span>
+    </div>
+    <h1>🔥 Адский Меч Пламени</h1>
+    <p>Двуручный великий меч из обсидиана и звездного золота, пылающий живым градиентным огнем и вращающимися углями.</p>
+    
+    <ul class="specs-list">
+      <li><span>Сетка (Micro-Voxel):</span> <span class="val">0.012м (1.2 см/куб)</span></li>
+      <li><span>Длина лезвия:</span> <span class="val">70 вокселей (0.84м)</span></li>
+      <li><span>Общая длина:</span> <span class="val">108 вокселей (1.30м)</span></li>
+      <li><span>Навершие (Pommel):</span> <span class="val">Когти дракона + Рубин</span></li>
+      <li><span>Огненная Аура:</span> <span class="val">Крылья огня + 3D Спирали</span></li>
+      <li><span>Анимация:</span> <span class="val">Дыхание → Удар → Реверс</span></li>
+    </ul>
+
+    <div class="timeline-container">
+      <div class="timeline-label">
+        <span id="anim-state-text">Фаза: Загрузка модели...</span>
+        <span id="anim-time-text">0.0s / 2.0s</span>
+      </div>
+      <div class="timeline-bar" id="timeline-bar">
+        <div class="timeline-fill" id="timeline-fill"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-play">⏸️ Пауза</button>
+      <button id="btn-slash" class="btn-accent">⚡ Огненный Удар!</button>
+      <button id="btn-speed" class="btn-secondary">Скорость: 1.0x</button>
+      <button id="btn-spin" class="btn-secondary">Вращение: ВКЛ</button>
+    </div>
+
+    <div class="controls-hint">
+      <span>🖱️ <b>ЛКМ + Перетаскивание:</b> Свободный 3D обзор 360°</span>
+      <span>📜 <b>Колесо мыши:</b> Зум к вокселям</span>
+      <span>🖱️ <b>ПКМ:</b> Смещение ракурса</span>
+    </div>
+  </div>
+
+  <div id="loading-indicator">🔥 Разжигание Адского Пламени...</div>
+  <div id="canvas-container"></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    const container = document.getElementById('canvas-container');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(1.8, 0.6, 2.2);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.35;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.target.set(0.2, 0.1, 0.4);
+    controls.minDistance = 0.5;
+    controls.maxDistance = 6.0;
+
+    // Dramatic Studio 3-Point Lighting
+    const sunLight = new THREE.DirectionalLight(0xffeedd, 3.6);
+    sunLight.position.set(3, 5, 3);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    scene.add(sunLight);
+
+    const rimLight = new THREE.DirectionalLight(0xff5500, 4.0);
+    rimLight.position.set(-3, 2, -3);
+    scene.add(rimLight);
+
+    const sapphireLight = new THREE.DirectionalLight(0x2266ff, 1.8);
+    sapphireLight.position.set(3, -2, -2);
+    scene.add(sapphireLight);
+
+    const ambientLight = new THREE.AmbientLight(0x2a1010, 0.8);
+    scene.add(ambientLight);
+
+    // Animation Mixer & State
+    let mixer = null;
+    let mainAction = null;
+    let isPlaying = true;
+    let speedIdx = 2;
+    const speeds = [0.25, 0.5, 1.0, 1.5];
+    let autoRotate = true;
+
+    const timelineFill = document.getElementById('timeline-fill');
+    const animStateText = document.getElementById('anim-state-text');
+    const animTimeText = document.getElementById('anim-time-text');
+
+    function initModel(gltf) {
+      const model = gltf.scene;
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          if (child.material) {
+            // Enhance glowing emissives
+            if (child.material.emissive) {
+              const name = child.material.name || '';
+              if (name.includes('Core') || name.includes('Yellow') || name.includes('Ruby') || name.includes('Lava')) {
+                child.material.emissiveIntensity = 2.2;
+              }
+            }
+          }
+        }
+      });
+      scene.add(model);
+
+      if (gltf.animations && gltf.animations.length > 0) {
+        mixer = new THREE.AnimationMixer(model);
+        mainAction = mixer.clipAction(gltf.animations[0]);
+        mainAction.setLoop(THREE.LoopRepeat);
+        mainAction.play();
+      }
+
+      loadingIndicator.style.display = 'none';
+      animStateText.innerText = "Фаза: Дыхание Пламени";
+    }
+
+    const loader = new GLTFLoader();
+    const modelSource = window.INFERNAL_SWORD_BASE64 || './infernal_flame_sword.glb';
+
+    loader.load(
+      modelSource,
+      (gltf) => initModel(gltf),
+      undefined,
+      (err) => {
+        console.warn("Primary load failed, trying binary fallback...", err);
+        loader.load(
+          './infernal_flame_sword.glb',
+          (gltf) => initModel(gltf),
+          undefined,
+          (err2) => {
+            console.error("All model loads failed:", err2);
+            loadingIndicator.innerText = "❌ Ошибка загрузки модели";
+          }
+        );
+      }
+    );
+
+    // Button Listeners
+    const btnPlay = document.getElementById('btn-play');
+    btnPlay.addEventListener('click', () => {
+      if (!mainAction) return;
+      isPlaying = !isPlaying;
+      mainAction.paused = !isPlaying;
+      btnPlay.innerText = isPlaying ? "⏸️ Пауза" : "▶️ Играть";
+    });
+
+    const btnSlash = document.getElementById('btn-slash');
+    btnSlash.addEventListener('click', () => {
+      if (!mainAction || !mixer) return;
+      // Jump directly to frame 21 (0.7s) to fire the heavy slash!
+      mainAction.time = 0.70;
+      if (!isPlaying) {
+        isPlaying = true;
+        mainAction.paused = false;
+        btnPlay.innerText = "⏸️ Пауза";
+      }
+    });
+
+    const btnSpeed = document.getElementById('btn-speed');
+    btnSpeed.addEventListener('click', () => {
+      speedIdx = (speedIdx + 1) % speeds.length;
+      const spd = speeds[speedIdx];
+      btnSpeed.innerText = `Скорость: ${spd}x`;
+      if (mixer) mixer.timeScale = spd;
+    });
+
+    const btnSpin = document.getElementById('btn-spin');
+    btnSpin.addEventListener('click', () => {
+      autoRotate = !autoRotate;
+      btnSpin.innerText = `Вращение: ${autoRotate ? 'ВКЛ' : 'ВЫКЛ'}`;
+    });
+
+    // Timeline Scrubber Click
+    const timelineBar = document.getElementById('timeline-bar');
+    timelineBar.addEventListener('click', (e) => {
+      if (!mainAction) return;
+      const rect = timelineBar.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const totalDur = mainAction.getClip().duration || 2.0;
+      mainAction.time = pct * totalDur;
+    });
+
+    // Animation Loop
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+
+      if (mixer) {
+        mixer.update(delta);
+
+        if (mainAction) {
+          const clipDur = mainAction.getClip().duration || 2.0;
+          const curTime = mainAction.time % clipDur;
+          const pct = (curTime / clipDur) * 100;
+          timelineFill.style.width = `${pct}%`;
+          animTimeText.innerText = `${curTime.toFixed(2)}s / ${clipDur.toFixed(2)}s`;
+
+          // Frame phase calculation (60 frames total)
+          const curFrame = Math.round((curTime / clipDur) * 60);
+          if (curFrame <= 20) {
+            animStateText.innerText = `🔥 Дыхание Пламени (Кадр ${curFrame}/60)`;
+          } else if (curFrame <= 25) {
+            animStateText.innerText = `⚔️ Замах и концентрация огня! (${curFrame}/60)`;
+          } else if (curFrame <= 34) {
+            animStateText.innerText = `💥 Огненный Разрез & Взрыв Пламени! (${curFrame}/60)`;
+          } else if (curFrame <= 46) {
+            animStateText.innerText = `🌀 Инерция и вихрь искр (${curFrame}/60)`;
+          } else {
+            animStateText.innerText = `🔄 Возврат в боевую стойку (${curFrame}/60)`;
+          }
+        }
+      }
+
+      if (autoRotate && !controls.state == -1) {
+        scene.rotation.y += 0.003;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
