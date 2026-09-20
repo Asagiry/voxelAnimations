@@ -662,17 +662,18 @@
         fallback: './assets/zombie/zombie.glb',
         actionName: "💥 Двойной Удар Когтями!",
         actionTime: 1.37,
+        totalFrames: 80,
         specs: [
-          ["Сетка (Micro-Voxel):", "0.014м (1.4 см/куб)"],
-          ["Рост персонажа:", "44 вокселя (~0.62м)"],
-          ["Скелетная оснастка:", "18 костей (Biped Rig + Claws)"],
-          ["Материалы:", "Гниющая плоть, кость, лохмотья, светящиеся глаза"],
+          ["Сетка (Micro-Voxel):", "0.015м (Trove Modular Standard)"],
+          ["Анатомия:", "Сегментированные парящие конечности"],
+          ["Сокеты экипировки:", "Socket_Hand_R/L, Head, Back"],
+          ["Материалы:", "Гниющая плоть, кость, лохмотья, светящийся глаз"],
           ["Анимация:", "Шатающаяся походка (1-40) → Выпад когтями (41-80)"]
         ],
-        rimColor: 0x44ff22,
-        fillColor: 0x1e3a1e,
-        camPos: [0.7, 0.45, 1.1],
-        camTarget: [0, 0.32, 0],
+        rimColor: 0x84cc16,
+        fillColor: 0x4a6b48,
+        camPos: [-0.65, 0.52, -1.15],
+        camTarget: [0, 0.35, -0.05],
         stateMap: (f) => {
           if (f <= 40) return "Фаза: Ковыляющая хромота и рыскание (Shambling Walk Loop)";
           if (f < 52) return "Фаза: Подготовка — замах и оскал челюстей";
@@ -875,8 +876,9 @@
           timelineFill.style.width = `${pct}%`;
           animTimeText.innerText = `${curTime.toFixed(2)}s / ${duration.toFixed(2)}s`;
 
-          const frame = Math.floor((curTime / duration) * 60);
           const asset = ASSETS[currentAssetKey];
+          const totalFrames = (asset && asset.totalFrames) || 60;
+          const frame = Math.floor((curTime / duration) * totalFrames);
           if (asset && asset.stateMap) {
             animStateText.innerText = asset.stateMap(frame);
           }

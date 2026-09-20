@@ -155,3 +155,18 @@ Controls:
 - **Remote**: `https://github.com/Asagiry/voxelAnimations.git`
 - **Main Branch**: `main`
 - Keep `.gitignore` intact: it ensures skills are tracked while excluding temporary Blender `.blend1` backup files.
+
+---
+
+## 7. Specialized Subagent Architecture & Socket Standards
+
+To scale asset generation without style fragmentation, the pipeline is divided into 3 specialized subagents, all sharing the **Trove Voxel & Socket Standard**:
+
+| Subagent | Role | Key Constraints & Sockets |
+| :--- | :--- | :--- |
+| `weapon_artisan` | Melee, ranged & magical weapons | Handle grip thickness: $2 \times 2$ or $3 \times 3$ voxels. Pivot at `(0, 0, 0)` matching `Socket_Hand_R`. 5-phase attack animation. |
+| `character_artisan` | Trove Chibi Bipeds & Monsters | Height 32–36 voxels. Segmented/floating limbs (hands, boots, pauldrons detached with joint gaps). Armature includes `Socket_Hand_R`, `Socket_Hand_L`, `Socket_Head`, `Socket_Back`. |
+| `equipment_artisan` | Hats, helms, wings, shields, pauldrons | Helmets have internal hollow $10 \times 10 \times 10$ cavity to fit any standard head. Anchor points match standard sockets. |
+
+### Clean-up Contract
+Every subagent must clean up all temporary `test_*.png` images and `*.blend1` files before finishing. Only 5 canonical files per asset: `build_*.py`, `*.blend`, `*.glb`, `*_render.png`, `*_data.js`.

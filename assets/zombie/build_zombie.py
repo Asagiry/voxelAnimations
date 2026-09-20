@@ -5,8 +5,8 @@ import base64
 from mathutils import Vector, Matrix
 
 print("=================================================================")
-print(">>> [TROVE VOXEL ARTISAN] Micro-Voxel Undead Zombie Character (v2)")
-print(">>> Authentic Retro Voxel Style: Trove / Cube World / Astra 6")
+print(">>> [TROVE VOXEL ARTISAN] Authentic Trove Chibi Biped: Undead Zombie")
+print(">>> Segmented Floating Limbs | Multi-Layer Micro-Voxel Relief")
 print("=================================================================")
 
 # -----------------------------------------------------------------
@@ -18,10 +18,10 @@ scene.frame_start = 1
 scene.frame_end = 80
 scene.render.fps = 30
 
-VOXEL_SIZE = 0.014  # 1.4 cm micro-voxel scale (~44 voxels tall = ~0.62m world units)
+VOXEL_SIZE = 0.015  # 1.5 cm authentic Trove micro-voxel grid
 
 # -----------------------------------------------------------------
-# 2. Shader & Materials Definition (AgX Safe Palette)
+# 2. Shader & Materials Definition (AgX Safe Saturated Palette)
 # -----------------------------------------------------------------
 def make_shader(name, color, roughness=0.6, metallic=0.0, emission=0.0, emission_color=None):
     mat = bpy.data.materials.new(name=name)
@@ -51,24 +51,28 @@ def make_shader(name, color, roughness=0.6, metallic=0.0, emission=0.0, emission
 
 mats = {
     # 1. Rotting Olive Flesh
-    'flesh_green':    make_shader('M_FleshGreen',    (0.068, 0.147, 0.063, 1.0), roughness=0.65, metallic=0.05),
+    'flesh_green':    make_shader('M_FleshGreen',    (0.075, 0.160, 0.068, 1.0), roughness=0.65, metallic=0.05),
     # 2. Shadowed Gangrenous Flesh
-    'flesh_dark':     make_shader('M_FleshDark',     (0.038, 0.082, 0.036, 1.0), roughness=0.70, metallic=0.05),
-    # 3. Decayed Bone & Teeth & Exposed Skull
-    'decayed_bone':   make_shader('M_DecayedBone',   (0.530, 0.490, 0.390, 1.0), roughness=0.45, metallic=0.10),
-    # 4. Shredded Dark Tunic / Trousers
-    'cloth_dark':     make_shader('M_ClothDark',     (0.024, 0.032, 0.041, 1.0), roughness=0.85, metallic=0.02),
-    # 5. Tattered Leather / Belts / Wraps
-    'cloth_tattered': make_shader('M_ClothTattered', (0.055, 0.034, 0.023, 1.0), roughness=0.80, metallic=0.05),
-    # 6. Dark Wound / Dried Blood Cavity
+    'flesh_dark':     make_shader('M_FleshDark',     (0.040, 0.088, 0.038, 1.0), roughness=0.70, metallic=0.05),
+    # 3. Decayed Ivory Bone (Skull, Ribs, Talons)
+    'decayed_bone':   make_shader('M_DecayedBone',   (0.580, 0.540, 0.440, 1.0), roughness=0.45, metallic=0.10),
+    # 4. Bone Highlight (Tooth pegs, rib tips, claw tips)
+    'bone_highlight': make_shader('M_BoneHighlight', (0.740, 0.700, 0.600, 1.0), roughness=0.35, metallic=0.10),
+    # 5. Shredded Dark Tunic / Trousers
+    'cloth_dark':     make_shader('M_ClothDark',     (0.024, 0.032, 0.042, 1.0), roughness=0.85, metallic=0.02),
+    # 6. Tattered Leather / Belt / Wraps
+    'cloth_tattered': make_shader('M_ClothTattered', (0.068, 0.044, 0.030, 1.0), roughness=0.80, metallic=0.05),
+    # 7. Corroded Bronze / Metal Buckle
+    'buckle_bronze':  make_shader('M_BuckleBronze',  (0.360, 0.280, 0.120, 1.0), roughness=0.35, metallic=0.85),
+    # 8. Dark Wound Cavity / Dried Blood Fissure
     'wound_dark':     make_shader('M_WoundDark',     (0.046, 0.009, 0.009, 1.0), roughness=0.50, metallic=0.15),
-    # 7. Eerie Glowing Undead Eyes (Toxic Yellow-Green)
-    'eye_glow':       make_shader('M_EyeGlow',       (0.440, 0.790, 0.020, 1.0), roughness=0.10, metallic=0.00, emission=1.8, emission_color=(0.48, 0.85, 0.05, 1.0)),
-    # 8. Dark Scalp / Straggly Hair Tufts
+    # 9. Eerie Glowing Undead Eyes (Toxic Yellow-Green)
+    'eye_glow':       make_shader('M_EyeGlow',       (0.480, 0.850, 0.020, 1.0), roughness=0.10, metallic=0.00, emission=2.2, emission_color=(0.55, 0.95, 0.05, 1.0)),
+    # 10. Dark Scalp / Straggly Hair Strands
     'hair_dark':      make_shader('M_HairDark',      (0.015, 0.018, 0.022, 1.0), roughness=0.90, metallic=0.02),
-    # 9. Heavy Combat Boot Sole
+    # 11. Heavy Combat Boot Sole
     'boot_sole':      make_shader('M_BootSole',      (0.012, 0.015, 0.018, 1.0), roughness=0.90, metallic=0.10),
-    # 10. Geometric Claw Slash Trail (Toxic Lime Green)
+    # 12. Geometric Claw Slash Trail (Toxic Lime Green)
     'slash_trail':    make_shader('M_SlashTrail',    (0.280, 0.820, 0.050, 1.0), roughness=0.15, metallic=0.00, emission=2.2, emission_color=(0.32, 0.90, 0.08, 1.0)),
     'slash_core':     make_shader('M_SlashCore',     (0.750, 0.980, 0.350, 1.0), roughness=0.10, metallic=0.00, emission=2.8, emission_color=(0.80, 1.00, 0.40, 1.0)),
 }
@@ -84,291 +88,372 @@ def set_vox(x, y, z, mat, bone, overwrite=False):
         return
     voxels[k] = (mat, bone)
 
-print(">>> [1/5] Synthesizing Micro-Voxel Zombie Anatomy...")
+print(">>> [1/5] Synthesizing Authentic Trove Chibi Voxel Anatomy...")
 
 # --- 3.1 LEFT LEG: Combat Boot, Rotting Calf, Tattered Trouser ---
-# Foot.L (Z = 0..3)
+# Foot.L (Z = 0..3) - Chunky Distinct Voxel Block (4 wide x 6 long x 4 high)
 for x in range(2, 6):
-    for y in range(-2, 5):
+    for y in range(-2, 4):
         set_vox(x, y, 0, 'boot_sole', 'Foot.L', True)
-        if y <= 3:
-            set_vox(x, y, 1, 'cloth_dark', 'Foot.L', True)
-        if -1 <= y <= 2:
-            set_vox(x, y, 2, 'cloth_dark', 'Foot.L', True)
-            set_vox(x, y, 3, 'cloth_tattered' if (x == 5 or y == 2) else 'cloth_dark', 'Foot.L', True)
+        set_vox(x, y, 1, 'cloth_dark', 'Foot.L', True)
+        set_vox(x, y, 2, 'cloth_dark', 'Foot.L', True)
+        m_top = 'cloth_tattered' if (y in (-2, 3) or x in (2, 5) or y == 1) else 'cloth_dark'
+        set_vox(x, y, 3, m_top, 'Foot.L', True)
 
-# LowerLeg.L (Z = 4..9)
-for z in range(4, 10):
-    for x in range(2, 6):
-        for y in range(-1, 3):
-            if z <= 6:
-                m = 'flesh_dark' if (y == -1 or x == 5) else 'flesh_green'
-            else:
-                m = 'cloth_dark' if (z >= 8 or (x + y + z) % 2 == 0) else 'cloth_tattered'
+# ANKLE JOINT GAP: Z = 4 is 1-voxel empty air!
+
+# LowerLeg.L (Z = 5..8) - 2x2 Calf Strut
+for z in range(5, 9):
+    for x in (3, 4):
+        for y in (0, 1):
+            m = 'cloth_tattered' if z == 7 else ('flesh_dark' if y == 0 else 'flesh_green')
             set_vox(x, y, z, m, 'LowerLeg.L', True)
 
-# UpperLeg.L (Z = 10..17)
-for z in range(10, 18):
-    for x in range(2, 6):
-        for y in range(-1, 3):
-            if z == 10 and y == 2:
-                m = 'flesh_dark'
-            elif z in (13, 14) and x == 2:
-                m = 'cloth_tattered'
-            else:
-                m = 'cloth_dark'
+# UpperLeg.L (Z = 9..12) - 2x2 Thigh Strut
+for z in range(9, 13):
+    for x in (3, 4):
+        for y in (0, 1):
+            m = 'flesh_dark' if (z == 9 and y == 1) else 'cloth_dark'
             set_vox(x, y, z, m, 'UpperLeg.L', True)
 
 # --- 3.2 RIGHT LEG: Bare Skeletal Foot, Exposed Shin Bone, Torn Knee ---
-# Foot.R (Z = 0..3)
+# Foot.R (Z = 0..3) - Chunky Distinct Skeletal Sabaton (4 wide x 6 long x 4 high)
 for x in range(-5, -1):
     for y in range(-2, 4):
         set_vox(x, y, 0, 'decayed_bone', 'Foot.R', True)
-for toe_x in (-5, -4, -3, -2):
-    set_vox(toe_x, 4, 0, 'decayed_bone', 'Foot.R', True)
-for z in (1, 2):
-    for x in (-4, -3):
-        for y in (-1, 1):
-            set_vox(x, y, z, 'decayed_bone', 'Foot.R', True)
+        m = 'wound_dark' if ((x == -4 and y == 0) or (x == -3 and y == 1)) else 'decayed_bone'
+        set_vox(x, y, 1, m, 'Foot.R', True)
+
+for x in (-4, -3):
+    for y in (-1, 2):
+        set_vox(x, y, 2, 'decayed_bone', 'Foot.R', True)
+set_vox(-4, -2, 2, 'bone_highlight', 'Foot.R', True)  # Heel spur
+
+set_vox(-4, 0, 3, 'bone_highlight', 'Foot.R', True)
 set_vox(-3, 0, 3, 'decayed_bone', 'Foot.R', True)
+set_vox(-4, 1, 3, 'decayed_bone', 'Foot.R', True)
+set_vox(-3, 1, 3, 'decayed_bone', 'Foot.R', True)
 
-# LowerLeg.R (Z = 4..9) - EXPOSED TIBIA SHIN BONE
-for z in range(4, 10):
-    for x in range(-5, -1):
-        for y in range(-1, 3):
-            if y == 2 and x in (-4, -3):
-                set_vox(x, y, z, 'decayed_bone', 'LowerLeg.R', True)
-            elif y == 1 and x in (-4, -3):
-                set_vox(x, y, z, 'wound_dark', 'LowerLeg.R', True)
-            else:
-                m = 'flesh_dark' if (x == -5 or y == -1) else 'flesh_green'
-                set_vox(x, y, z, m, 'LowerLeg.R', True)
+# ANKLE JOINT GAP: Z = 4 is 1-voxel empty air!
 
-# UpperLeg.R (Z = 10..17)
-for z in range(10, 18):
-    for x in range(-5, -1):
-        for y in range(-1, 3):
-            if z in (10, 11) and y == 2:
-                m = 'decayed_bone' if x == -3 else 'wound_dark'
-            elif z in (10, 11) and y == 1 and x == -3:
-                m = 'wound_dark'
-            elif (x + y + z) % 3 == 0:
-                m = 'cloth_tattered'
+# LowerLeg.R (Z = 5..8) - 2x2 Strut with EXPOSED TIBIA SHIN BONE
+for z in range(5, 9):
+    for x in (-4, -3):
+        for y in (0, 1):
+            if y == 1:
+                set_vox(x, y, z, 'bone_highlight' if x == -3 else 'decayed_bone', 'LowerLeg.R', True)
             else:
-                m = 'cloth_dark'
+                set_vox(x, y, z, 'flesh_dark' if z % 2 == 0 else 'wound_dark', 'LowerLeg.R', True)
+
+# UpperLeg.R (Z = 9..12) - 2x2 Thigh Strut
+for z in range(9, 13):
+    for x in (-4, -3):
+        for y in (0, 1):
+            m = 'decayed_bone' if (z == 9 and y == 1) else ('cloth_tattered' if (x + z) % 2 == 0 else 'cloth_dark')
             set_vox(x, y, z, m, 'UpperLeg.R', True)
 
-# --- 3.3 PELVIS & HIPS (Z = 17..21) ---
-for z in range(17, 22):
-    for x in range(-5, 6):
-        for y in range(-2, 3):
-            m = 'cloth_dark'
-            if z == 20:
-                if y in (-2, 2) or abs(x) == 5:
-                    m = 'cloth_tattered'
-            elif z == 17 and (x in (-2, 2) or y == 2):
+# --- 3.3 PELVIS, WAIST & EXTRUDED BELT BUCKLE (Z = 13..16) ---
+# Pelvis (Z = 13..15) - 8 wide x 6 deep x 3 high
+for z in range(13, 16):
+    for x in range(-4, 4):
+        for y in range(-3, 3):
+            if z == 13 and (y in (-3, 2) or abs(x) in (3, 4)):
                 m = 'cloth_tattered'
+            elif x <= -2 and y >= 1 and z == 14:
+                m = 'wound_dark'
+            else:
+                m = 'cloth_dark'
             set_vox(x, y, z, m, 'Hips', True)
-set_vox(0, 3, 20, 'cloth_tattered', 'Hips', True)
-set_vox(0, 3, 19, 'cloth_tattered', 'Hips', True)
 
-# --- 3.4 SPINE & LOWER TORSO (Z = 21..26) ---
-for z in range(21, 27):
-    for x in range(-5, 6):
-        for y in range(-2, 3):
-            if x <= -2 and y >= 0 and z in (22, 23, 24):
-                if y == 2:
-                    m = 'wound_dark'
-                elif y == 1:
-                    m = 'wound_dark' if x == -3 else 'flesh_dark'
-                else:
-                    m = 'flesh_dark'
-            elif x == 0 and y == -2:
-                m = 'decayed_bone' if z % 2 == 0 else 'cloth_tattered'
-            else:
-                m = 'cloth_tattered' if (x + y + z) % 4 == 0 else 'cloth_dark'
-            set_vox(x, y, z, m, 'Spine', True)
+# Waist & Belt Perimeter (Z = 16)
+for x in range(-4, 4):
+    for y in range(-3, 3):
+        is_perimeter = (x in (-4, 3) or y in (-3, 2))
+        m = 'cloth_tattered' if is_perimeter else 'cloth_dark'
+        set_vox(x, y, 16, m, 'Hips', True)
 
-# --- 3.5 CHEST, SHOULDERS & EXPOSED RIBCAGE (Z = 26..33) ---
-for z in range(26, 34):
-    for x in range(-6, 7):
-        for y in range(-3, 4):
-            is_back_hump = (y <= -2 and z in (28, 29, 30, 31, 32))
-            
-            # EXPOSED RIBCAGE on Right Chest (x <= -1, y >= 0, z in 27..32)
-            if -5 <= x <= -1 and y >= 1 and 27 <= z <= 32:
-                if z in (28, 30, 32) and y == 2:
-                    m = 'decayed_bone'
-                elif z in (28, 30, 32) and y == 3 and x in (-4, -3, -2):
-                    m = 'decayed_bone'
-                else:
-                    m = 'wound_dark'
-            elif is_back_hump:
-                if x == 0 and y == -3 and z in (29, 31):
-                    m = 'decayed_bone'
-                else:
-                    m = 'cloth_dark' if abs(x) > 1 else 'cloth_tattered'
-            elif z == 33 and y == 2 and x in (-4, -3, -2):
-                m = 'decayed_bone'
-            elif z >= 32 and abs(x) <= 2 and y >= 1:
-                m = 'flesh_dark'
-            else:
-                m = 'cloth_tattered' if (x == 4 or z == 29) else 'cloth_dark'
-            set_vox(x, y, z, m, 'Chest', True)
+# Belt Buckle Extruded Forward (+1 voxel relief at Y = 3, Z = 16)
+set_vox(-1, 3, 16, 'buckle_bronze', 'Hips', True)
+set_vox(0, 3, 16, 'buckle_bronze', 'Hips', True)
+set_vox(-2, 3, 16, 'cloth_tattered', 'Hips', True)
+set_vox(1, 3, 16, 'cloth_tattered', 'Hips', True)
 
-# --- 3.6 NECK (Z = 33..35) ---
-for z in range(33, 36):
-    for x in range(-2, 3):
-        for y in range(-1, 2):
-            if x == 0 and y == -1:
-                m = 'decayed_bone'
-            else:
-                m = 'flesh_dark' if (x == -2 or y == 1) else 'flesh_green'
-            set_vox(x, y, z, m, 'Neck', True)
-
-# --- 3.7 HEAD: Asymmetrical Cranium, Glowing Eye, Exposed Jaw & Teeth (Z = 35..45) ---
-for z in range(35, 46):
-    for x in range(-6, 7):
-        for y in range(-3, 5):
-            if abs(x) == 6 and (y <= -2 or y >= 4 or z in (35, 45)):
-                continue
-            if y == -3 and (abs(x) >= 5 or z >= 44):
+# --- 3.4 TORSO & CHEST: DEEP WOUND CAVITY & 3 PAIRS OF CURVED 3D BONE RIBS (Z = 17..24) ---
+# Chest Base (8 wide x 6 deep x 8 high)
+for z in range(17, 25):
+    for x in range(-4, 4):
+        for y in range(-3, 3):
+            # Rear vertebral spine ridge (Y = -3)
+            if y == -3 and x in (-1, 0):
+                set_vox(x, y, z, 'decayed_bone' if z in (18, 20, 22, 24) else 'cloth_tattered', 'Chest', True)
                 continue
             
-            if z >= 44:
-                if (x >= 0 and y <= 2) or (y == -3 and x >= -2):
-                    set_vox(x, y, z, 'hair_dark', 'Head', True)
-                    continue
-            
-            if -5 <= x <= -1 and z >= 40 and y >= 0:
-                if (x == -3 and y in (1, 2, 3) and z in (41, 42)) or (x == -2 and y == 3 and z == 43):
-                    m = 'wound_dark'
-                else:
-                    m = 'decayed_bone'
-                set_vox(x, y, z, m, 'Head', True)
-                continue
-            
-            m = 'flesh_green' if (x >= 0 and z >= 38) else 'flesh_dark'
-            set_vox(x, y, z, m, 'Head', True)
-
-# Facial Details
-for x in range(-5, 6):
-    m = 'decayed_bone' if x <= -1 else 'flesh_dark'
-    set_vox(x, 4, 40, m, 'Head', True)
-set_vox(0, 4, 40, 'flesh_dark', 'Head', True)
-
-# Left Glowing Eye
-set_vox(2, 4, 39, 'eye_glow', 'Head', True)
-set_vox(3, 4, 39, 'eye_glow', 'Head', True)
-set_vox(1, 4, 39, 'flesh_dark', 'Head', True)
-set_vox(4, 4, 39, 'flesh_dark', 'Head', True)
-
-# Right Eye Socket
-set_vox(-3, 4, 39, 'wound_dark', 'Head', True)
-set_vox(-2, 4, 39, 'eye_glow', 'Head', True)
-set_vox(-4, 4, 39, 'flesh_dark', 'Head', True)
-set_vox(-1, 4, 39, 'flesh_dark', 'Head', True)
-
-# Nose Cavity
-set_vox(-1, 4, 38, 'wound_dark', 'Head', True)
-set_vox(0, 4, 38, 'wound_dark', 'Head', True)
-
-# Mouth & Teeth
-for x in range(-3, 4):
-    for z in (36, 37):
-        set_vox(x, 3, z, 'wound_dark', 'Head', True)
-for tx in (-3, -2, -1, 1, 2, 3):
-    set_vox(tx, 4, 37, 'decayed_bone', 'Head', True)
-for x in range(-4, 5):
-    for y in range(2, 5):
-        m_jaw = 'decayed_bone' if x <= -2 else ('flesh_dark' if x <= 1 else 'flesh_green')
-        set_vox(x, y, 35, m_jaw, 'Head', True)
-for tx in (-3, -1, 1, 3):
-    set_vox(tx, 4, 36, 'decayed_bone', 'Head', True)
-
-# --- 3.8 LEFT ARM: Fleshy Arm, Bandaged Forearm & Razor Claws ---
-for z in range(24, 32):
-    for x in range(7, 10):
-        for y in range(-1, 3):
-            if z >= 29:
-                m = 'cloth_dark' if (x == 7 or y == -1) else 'cloth_tattered'
+            # Recessed Wound Cavity: X in [-3, 1], Y in [0, 2], Z in [18, 23]
+            is_cavity = (-3 <= x <= 1 and 0 <= y <= 2 and 18 <= z <= 23)
+            if is_cavity:
+                if y <= 1:
+                    set_vox(x, y, z, 'wound_dark', 'Chest', True)
             else:
-                m = 'flesh_dark' if (y == -1 or x == 9) else 'flesh_green'
+                if x >= 1:
+                    m = 'flesh_green' if (z >= 22 or y >= 1) else 'cloth_dark'
+                else:
+                    m = 'cloth_dark' if (x == -4 or z == 17) else 'flesh_dark'
+                set_vox(x, y, z, m, 'Chest', True)
+
+# Rear Vertebral Spikes (Y = -4 at Z = 20, 22, 24)
+set_vox(0, -4, 20, 'bone_highlight', 'Chest', True)
+set_vox(-1, -4, 22, 'bone_highlight', 'Chest', True)
+set_vox(0, -4, 24, 'bone_highlight', 'Chest', True)
+
+# Clavicles / Collar Bones (Z = 24, Y = 2)
+for x in (-3, -2, -1, 0, 1, 2):
+    set_vox(x, 2, 24, 'decayed_bone', 'Chest', True)
+
+# -----------------------------------------------------------------
+# 3 PAIRS OF CURVED 3D BONE RIBS (Protruding +1 to +2 voxels forward!)
+# -----------------------------------------------------------------
+# Lower Rib Pair (Z = 19) -> Protrudes forward to Y = 3 (+1 voxel forward)
+set_vox(-3, 1, 19, 'decayed_bone', 'Chest', True)
+set_vox(-3, 2, 19, 'decayed_bone', 'Chest', True)
+set_vox(-2, 3, 19, 'decayed_bone', 'Chest', True)
+set_vox(-1, 3, 19, 'bone_highlight', 'Chest', True)
+
+set_vox(2, 1, 19, 'decayed_bone', 'Chest', True)
+set_vox(2, 2, 19, 'decayed_bone', 'Chest', True)
+set_vox(1, 3, 19, 'decayed_bone', 'Chest', True)
+set_vox(0, 3, 19, 'bone_highlight', 'Chest', True)
+
+# Middle Rib Pair (Z = 21) -> APEX PROTRUSION to Y = 4 (+2 voxels forward!)
+set_vox(-3, 1, 21, 'decayed_bone', 'Chest', True)
+set_vox(-3, 2, 21, 'decayed_bone', 'Chest', True)
+set_vox(-2, 3, 21, 'decayed_bone', 'Chest', True)
+set_vox(-2, 4, 21, 'bone_highlight', 'Chest', True)
+set_vox(-1, 4, 21, 'bone_highlight', 'Chest', True)
+
+set_vox(2, 1, 21, 'decayed_bone', 'Chest', True)
+set_vox(2, 2, 21, 'decayed_bone', 'Chest', True)
+set_vox(1, 3, 21, 'decayed_bone', 'Chest', True)
+set_vox(1, 4, 21, 'bone_highlight', 'Chest', True)
+set_vox(0, 4, 21, 'bone_highlight', 'Chest', True)
+
+# Upper Rib Pair (Z = 23) -> Protrudes forward to Y = 3 (+1 voxel forward)
+set_vox(-3, 1, 23, 'decayed_bone', 'Chest', True)
+set_vox(-3, 2, 23, 'decayed_bone', 'Chest', True)
+set_vox(-2, 3, 23, 'decayed_bone', 'Chest', True)
+set_vox(-1, 3, 23, 'bone_highlight', 'Chest', True)
+
+set_vox(2, 1, 23, 'decayed_bone', 'Chest', True)
+set_vox(2, 2, 23, 'decayed_bone', 'Chest', True)
+set_vox(1, 3, 23, 'decayed_bone', 'Chest', True)
+set_vox(0, 3, 23, 'bone_highlight', 'Chest', True)
+
+# --- 3.5 PAULDRONS (SHOULDERS): FLOATING WITH 1-VOXEL BREATHING GAP FROM CHEST ---
+# Right Pauldron (Shoulder.R) - Floating at X: -9..-6, Y: -3..2, Z: 23..26 (X = -5 is empty gap!)
+for z in range(23, 27):
+    for x in range(-9, -5):
+        for y in range(-3, 3):
+            m = 'decayed_bone' if (z >= 25 or y == 2) else 'cloth_dark'
+            set_vox(x, y, z, m, 'Shoulder.R', True)
+
+# Jagged bone spikes on right pauldron
+set_vox(-8, 0, 27, 'bone_highlight', 'Shoulder.R', True)
+set_vox(-7, 0, 27, 'decayed_bone', 'Shoulder.R', True)
+
+# Left Pauldron (Shoulder.L) - Floating at X: 5..8, Y: -3..2, Z: 23..26 (X = 4 is empty gap!)
+for z in range(23, 27):
+    for x in range(5, 9):
+        for y in range(-3, 3):
+            is_rim = (x in (5, 8) or y in (-3, 2) or z in (23, 26))
+            m = 'cloth_tattered' if (is_rim and z >= 25) else ('flesh_dark' if y == 2 else 'cloth_dark')
+            set_vox(x, y, z, m, 'Shoulder.L', True)
+
+# --- 3.6 LEFT ARM: UPPER ARM, FOREARM, WRIST GAP & CHUNKY FLOATING HAND ---
+# UpperArm.L (Z = 19..23) - 2x2 Strut under pauldron
+for z in range(19, 24):
+    for x in (6, 7):
+        for y in (-1, 0):
+            m = 'cloth_dark' if z >= 22 else 'flesh_green'
             set_vox(x, y, z, m, 'UpperArm.L', True)
 
-for z in range(17, 24):
-    for x in range(7, 10):
-        for y in range(0, 3):
-            if z in (19, 20):
-                m = 'cloth_tattered'
-            else:
-                m = 'flesh_dark' if y == 0 else 'flesh_green'
+# Forearm.L (Z = 14..18) - 2x2 Strut with bandage wrap
+for z in range(14, 19):
+    for x in (6, 7):
+        for y in (-1, 0):
+            m = 'cloth_tattered' if z in (16, 17) else 'flesh_dark'
             set_vox(x, y, z, m, 'Forearm.L', True)
 
-for z in (15, 16):
-    for x in range(7, 10):
-        for y in range(2, 5):
-            set_vox(x, y, z, 'flesh_dark', 'Hand.L', True)
+# WRIST GAP: Z = 13 is 1-voxel empty air!
 
-set_vox(7, 5, 16, 'flesh_dark', 'Hand.L', True)
-set_vox(7, 6, 16, 'decayed_bone', 'Hand.L', True)
-set_vox(8, 5, 15, 'flesh_dark', 'Hand.L', True)
-set_vox(8, 6, 15, 'flesh_dark', 'Hand.L', True)
-set_vox(8, 7, 15, 'decayed_bone', 'Hand.L', True)
-set_vox(9, 5, 15, 'flesh_dark', 'Hand.L', True)
-set_vox(9, 6, 15, 'flesh_dark', 'Hand.L', True)
-set_vox(9, 7, 15, 'decayed_bone', 'Hand.L', True)
-set_vox(9, 5, 14, 'flesh_dark', 'Hand.L', True)
-set_vox(9, 6, 14, 'decayed_bone', 'Hand.L', True)
+# Hand.L (Z = 9..12) - Chunky Floating Hand (4 wide x 5 deep x 4 high)
+for z in range(9, 13):
+    for x in range(5, 9):
+        for y in range(-1, 4):
+            m = 'flesh_dark' if (y <= 0 or z == 9) else 'flesh_green'
+            set_vox(x, y, z, m, 'Hand.L', True)
 
-# --- 3.9 RIGHT ARM: Shredded Sleeve, SKELETAL RADIUS/ULNA FOREARM & TALONS ---
-for z in range(24, 32):
-    for x in range(-10, -6):
-        for y in range(-1, 3):
-            if z >= 29:
-                m = 'cloth_dark' if (x == -7 or y == -1) else 'cloth_tattered'
-            else:
-                m = 'wound_dark' if (z in (25, 26) and y == 2) else ('flesh_dark' if x == -10 else 'flesh_green')
+# Rotting Flesh Claws (protruding forward at Y = 4..5)
+set_vox(5, 4, 11, 'flesh_dark', 'Hand.L', True)
+set_vox(5, 5, 11, 'bone_highlight', 'Hand.L', True)
+set_vox(6, 4, 10, 'flesh_green', 'Hand.L', True)
+set_vox(6, 5, 10, 'bone_highlight', 'Hand.L', True)
+set_vox(7, 4, 10, 'flesh_green', 'Hand.L', True)
+set_vox(7, 5, 10, 'bone_highlight', 'Hand.L', True)
+set_vox(8, 4, 11, 'flesh_dark', 'Hand.L', True)
+set_vox(8, 5, 11, 'bone_highlight', 'Hand.L', True)
+
+# --- 3.7 RIGHT ARM: UPPER ARM, SKELETAL RADIUS/ULNA, WRIST GAP & CHUNKY FLOATING TALONS ---
+# UpperArm.R (Z = 19..23) - 2x2 Strut under pauldron
+for z in range(19, 24):
+    for x in (-8, -7):
+        for y in (-1, 0):
+            m = 'cloth_dark' if z >= 22 else 'flesh_dark'
             set_vox(x, y, z, m, 'UpperArm.R', True)
 
-for z in range(17, 24):
-    for y in (1, 2):
-        set_vox(-7, y, z, 'decayed_bone', 'Forearm.R', True)
-        set_vox(-9, y, z, 'decayed_bone', 'Forearm.R', True)
-    if z == 23:
-        set_vox(-8, 1, 23, 'flesh_dark', 'Forearm.R', True)
-    elif z == 20:
-        set_vox(-8, 1, 20, 'wound_dark', 'Forearm.R', True)
-    elif z == 17:
-        set_vox(-8, 2, 17, 'decayed_bone', 'Forearm.R', True)
+# Forearm.R (Z = 14..18) - TWIN SKELETAL RADIUS & ULNA STRUTS
+for z in range(14, 19):
+    set_vox(-8, -1, z, 'decayed_bone', 'Forearm.R', True)
+    set_vox(-7, 0, z, 'decayed_bone', 'Forearm.R', True)
+    if z == 16:
+        set_vox(-8, 0, z, 'wound_dark', 'Forearm.R', True)
 
-for z in (15, 16):
-    for x in (-9, -8, -7):
-        for y in (2, 4):
-            set_vox(x, y, z, 'decayed_bone', 'Hand.R', True)
+# WRIST GAP: Z = 13 is 1-voxel empty air!
 
-set_vox(-7, 5, 16, 'decayed_bone', 'Hand.R', True)
-set_vox(-7, 6, 16, 'decayed_bone', 'Hand.R', True)
-set_vox(-8, 5, 15, 'decayed_bone', 'Hand.R', True)
-set_vox(-8, 6, 15, 'decayed_bone', 'Hand.R', True)
-set_vox(-8, 7, 15, 'decayed_bone', 'Hand.R', True)
-set_vox(-9, 5, 15, 'decayed_bone', 'Hand.R', True)
-set_vox(-9, 6, 15, 'decayed_bone', 'Hand.R', True)
-set_vox(-9, 7, 15, 'decayed_bone', 'Hand.R', True)
-set_vox(-9, 5, 14, 'decayed_bone', 'Hand.R', True)
-set_vox(-9, 6, 14, 'decayed_bone', 'Hand.R', True)
+# Hand.R (Z = 9..12) - Chunky Floating Skeletal Hand (4 wide x 5 deep x 4 high)
+for z in range(9, 13):
+    for x in range(-9, -5):
+        for y in range(-1, 4):
+            m = 'decayed_bone' if (y >= 1 or z >= 11) else 'wound_dark'
+            set_vox(x, y, z, m, 'Hand.R', True)
 
-# --- 3.10 GEOMETRIC CLAW SLASH TRAILS (Combat VFX) ---
-# Volumetric crescent ribbons sweeping through the downward strike plane
+# Sharp Skeletal Claws & Talons (protruding forward at Y = 4..5)
+set_vox(-6, 4, 11, 'decayed_bone', 'Hand.R', True)
+set_vox(-6, 5, 11, 'bone_highlight', 'Hand.R', True)
+set_vox(-7, 4, 10, 'decayed_bone', 'Hand.R', True)
+set_vox(-7, 5, 10, 'bone_highlight', 'Hand.R', True)
+set_vox(-8, 4, 10, 'decayed_bone', 'Hand.R', True)
+set_vox(-8, 5, 10, 'bone_highlight', 'Hand.R', True)
+set_vox(-9, 4, 11, 'decayed_bone', 'Hand.R', True)
+set_vox(-9, 5, 11, 'bone_highlight', 'Hand.R', True)
+
+# --- 3.8 NECK & HEAD WITH MULTI-LAYERED MICRO-VOXEL RELIEF ---
+# Neck (Z = 25) - 2x2 Strut
+for x in (-1, 0):
+    for y in (-1, 0):
+        set_vox(x, y, 25, 'flesh_dark' if x == 0 else 'decayed_bone', 'Neck', True)
+
+# Head Base (Z = 26..35) - 10 wide x 10 deep x 10 high base cranium
+for z in range(26, 36):
+    for x in range(-5, 5):
+        for y in range(-5, 5):
+            if x <= -1:
+                m = 'decayed_bone'
+            else:
+                m = 'flesh_green' if (z >= 30 and y >= -1) else 'flesh_dark'
+            set_vox(x, y, z, m, 'Head', True)
+
+# SKULL CRACK ON RIGHT CRANIUM: Raised exposed ivory plates (+1 voxel step out to X = -6)
+for z in range(31, 35):
+    for y in (-1, 0, 1):
+        set_vox(-6, y, z, 'decayed_bone', 'Head', True)
+
+# Dark fissure cracks zigzagging through bone
+set_vox(-5, 1, 34, 'wound_dark', 'Head', True)
+set_vox(-5, 0, 33, 'wound_dark', 'Head', True)
+set_vox(-5, 1, 32, 'wound_dark', 'Head', True)
+set_vox(-5, 0, 31, 'wound_dark', 'Head', True)
+set_vox(-4, 2, 33, 'wound_dark', 'Head', True)
+set_vox(-4, 1, 34, 'wound_dark', 'Head', True)
+set_vox(-6, 0, 32, 'wound_dark', 'Head', True)
+
+# BROW RIDGE (+1 voxel extruded forward to Y = 5)
+for x in range(-4, 4):
+    m = 'decayed_bone' if x <= -1 else 'flesh_dark'
+    set_vox(x, 5, 31, m, 'Head', True)
+
+# RECESSED GLOWING EYES (Under Y = 5 brow ridge, recessed back at Y = 4)
+# Left 2x2 Toxic Glowing Eye (X: 1..2, Z: 29..30)
+set_vox(1, 4, 30, 'eye_glow', 'Head', True)
+set_vox(2, 4, 30, 'eye_glow', 'Head', True)
+set_vox(1, 4, 29, 'eye_glow', 'Head', True)
+set_vox(2, 4, 29, 'eye_glow', 'Head', True)
+# Dark bruised socket framing left eye
+set_vox(0, 4, 30, 'flesh_dark', 'Head', True)
+set_vox(3, 4, 30, 'flesh_dark', 'Head', True)
+set_vox(0, 4, 29, 'flesh_dark', 'Head', True)
+set_vox(3, 4, 29, 'flesh_dark', 'Head', True)
+
+# Right Mismatched Asymmetrical Socket
+set_vox(-2, 4, 29, 'eye_glow', 'Head', True)    # Pinpoint piercing glow
+set_vox(-3, 4, 29, 'wound_dark', 'Head', True)  # Deep hollow fissure socket
+set_vox(-3, 4, 30, 'wound_dark', 'Head', True)
+set_vox(-2, 4, 30, 'wound_dark', 'Head', True)
+set_vox(-4, 4, 30, 'decayed_bone', 'Head', True)
+set_vox(-1, 4, 30, 'decayed_bone', 'Head', True)
+
+# Sunken Nose Cavity (Z = 28)
+set_vox(-1, 4, 28, 'wound_dark', 'Head', True)
+set_vox(0, 4, 28, 'wound_dark', 'Head', True)
+
+# JAW & AGGRESSIVE SNARL WITH PROTRUDING 1x1 VOXEL TOOTH PEGS
+# Sunken mouth cavity (Y = 3, Z = 26..27)
+for x in range(-3, 4):
+    for z in (26, 27):
+        set_vox(x, 3, z, 'wound_dark', 'Head', True)
+
+# Jaw rim (Y = 4, Z = 26)
+for x in range(-4, 4):
+    set_vox(x, 4, 26, 'decayed_bone' if x <= -1 else 'flesh_dark', 'Head', True)
+
+# Individual 1x1 Tooth Pegs protruding forward to Y = 5!
+# Upper Teeth:
+set_vox(-4, 5, 27, 'decayed_bone', 'Head', True)
+set_vox(-3, 5, 27, 'decayed_bone', 'Head', True)
+set_vox(-1, 5, 27, 'bone_highlight', 'Head', True)
+set_vox(1, 5, 27, 'bone_highlight', 'Head', True)
+set_vox(3, 5, 27, 'decayed_bone', 'Head', True)
+# Lower Fangs:
+set_vox(-4, 5, 26, 'decayed_bone', 'Head', True)
+set_vox(-2, 5, 26, 'bone_highlight', 'Head', True)
+set_vox(0, 5, 26, 'bone_highlight', 'Head', True)
+set_vox(2, 5, 26, 'bone_highlight', 'Head', True)
+
+# HAIR STRANDS & TUFTS (+1 TO +2 VOXELS RELIEF)
+# Stepped layer across cranium top (Z = 36: +1 voxel relief)
+for x in range(-3, 4):
+    for y in range(-4, 2):
+        if (x + y) % 2 == 0 or y <= -2:
+            set_vox(x, y, 36, 'hair_dark', 'Head', True)
+
+# Spiky Crest Tufts (Z = 37: +2 voxels relief!)
+set_vox(-1, 0, 37, 'hair_dark', 'Head', True)
+set_vox(0, 0, 37, 'hair_dark', 'Head', True)
+set_vox(0, -2, 37, 'hair_dark', 'Head', True)
+set_vox(1, -2, 37, 'hair_dark', 'Head', True)
+set_vox(-2, -4, 37, 'hair_dark', 'Head', True)
+set_vox(-1, -4, 37, 'hair_dark', 'Head', True)
+
+# Back Hair Curtain (Y = -6: +1 voxel relief on rear)
+for z in range(28, 35):
+    for x in range(-3, 3):
+        set_vox(x, -6, z, 'hair_dark', 'Head', True)
+set_vox(-2, -6, 27, 'hair_dark', 'Head', True)
+set_vox(0, -6, 27, 'hair_dark', 'Head', True)
+set_vox(1, -6, 27, 'hair_dark', 'Head', True)
+
+# Left Temple Hair Tuft (X = 5: +1 voxel relief on side)
+for z in range(31, 34):
+    for y in (-1, 0, 1):
+        set_vox(5, y, z, 'hair_dark', 'Head', True)
+
+# --- 3.9 GEOMETRIC TOXIC-GREEN CLAW SLASH TRAILS ---
 def build_slash_ribbon(x_center, bone_name):
-    # Arc sweeps downward through strike zone: Y = 4..18, Z = 32..10
-    N_STEPS = 18
+    N_STEPS = 22
     for st in range(N_STEPS):
-        u = st / float(N_STEPS - 1)  # 0 at top-back, 1 at bottom-front
-        ang = -0.30 + u * (math.pi * 0.70)
-        rad = 13.0
-        cy = 5.0 + math.sin(ang) * rad
-        cz = 24.0 - math.cos(ang) * rad * 0.90
+        u = st / float(N_STEPS - 1)
+        ang = -0.42 + u * (math.pi * 0.78)
+        rad = 12.0
+        cy = 5.2 + math.sin(ang) * rad
+        cz = 22.0 - math.cos(ang) * rad * 0.90
         
         for dx in (-1, 0, 1):
             vx = x_center + dx
@@ -376,15 +461,15 @@ def build_slash_ribbon(x_center, bone_name):
                 m_trail = 'slash_core' if (dx == 0 and dy == 0) else 'slash_trail'
                 set_vox(vx, cy + dy, cz, m_trail, bone_name, True)
 
-build_slash_ribbon(8, 'ClawTrail.L')
+build_slash_ribbon(7, 'ClawTrail.L')
 build_slash_ribbon(-8, 'ClawTrail.R')
 
-print(f">>> Total Generated Micro-Voxels: {len(voxels)} voxels.")
+print(f">>> Total Generated Authentic Micro-Voxels: {len(voxels)} voxels.")
 
 # -----------------------------------------------------------------
 # 4. Watertight Boundary Quad Mesher & Optimization
 # -----------------------------------------------------------------
-print(">>> Constructing watertight exposed boundary quads...")
+print(">>> Constructing watertight boundary quad mesh...")
 
 DIRECTIONS = [
     (( 1,  0,  0), [(1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)]),
@@ -426,7 +511,7 @@ for (vx, vy, vz), (mat_name, bone_name) in voxels.items():
             faces.append(quad)
             face_mats.append(slot)
 
-print(f">>> Constructing Zombie Mesh: {len(verts)} vertices, {len(faces)} faces...")
+print(f">>> Raw Quad Mesh: {len(verts)} verts, {len(faces)} faces.")
 mesh = bpy.data.meshes.new("Zombie_Mesh")
 mesh.from_pydata(verts, [], faces)
 mesh.update()
@@ -436,7 +521,6 @@ for m in used_mat_names:
 for poly, slot in zip(mesh.polygons, face_mats):
     poly.material_index = slot
 
-# Strict flat shading
 mesh.polygons.foreach_set('use_smooth', [False] * len(mesh.polygons))
 mesh.update()
 
@@ -444,9 +528,9 @@ zombie_obj = bpy.data.objects.new("Zombie", mesh)
 bpy.context.collection.objects.link(zombie_obj)
 
 # -----------------------------------------------------------------
-# 5. Skeletal Rigging & Armature Hierarchy
+# 5. Skeletal Rigging & Standard Socket Architecture
 # -----------------------------------------------------------------
-print(">>> Rigging Clean Humanoid Armature Hierarchy...")
+print(">>> Rigging Clean Armature with Rigid Sockets...")
 arm_data = bpy.data.armatures.new("Zombie_Armature_Data")
 arm_obj = bpy.data.objects.new("Zombie_Armature", arm_data)
 bpy.context.collection.objects.link(arm_obj)
@@ -460,131 +544,155 @@ b_root = eb.new("Root")
 b_root.head = (0, 0, 0)
 b_root.tail = (0, 0.08, 0)
 
-# 2) Hips
+# 2) Hips / Pelvis
 b_hips = eb.new("Hips")
 b_hips.parent = b_root
-b_hips.head = (0, 0, 18 * VOXEL_SIZE)
-b_hips.tail = (0, 0, 22 * VOXEL_SIZE)
+b_hips.head = (0, 0, 14 * VOXEL_SIZE)
+b_hips.tail = (0, 0, 16 * VOXEL_SIZE)
 
 # 3) Spine
 b_spine = eb.new("Spine")
 b_spine.parent = b_hips
-b_spine.head = (0, 0, 22 * VOXEL_SIZE)
-b_spine.tail = (0, 0.5 * VOXEL_SIZE, 27 * VOXEL_SIZE)
+b_spine.head = (0, 0, 16 * VOXEL_SIZE)
+b_spine.tail = (0, 0, 20 * VOXEL_SIZE)
 
 # 4) Chest
 b_chest = eb.new("Chest")
 b_chest.parent = b_spine
-b_chest.head = (0, 0.5 * VOXEL_SIZE, 27 * VOXEL_SIZE)
-b_chest.tail = (0, 1.0 * VOXEL_SIZE, 33 * VOXEL_SIZE)
+b_chest.head = (0, 0, 20 * VOXEL_SIZE)
+b_chest.tail = (0, 0, 24 * VOXEL_SIZE)
 
 # 5) Neck
 b_neck = eb.new("Neck")
 b_neck.parent = b_chest
-b_neck.head = (0, 1.0 * VOXEL_SIZE, 33 * VOXEL_SIZE)
-b_neck.tail = (0, 1.5 * VOXEL_SIZE, 36 * VOXEL_SIZE)
+b_neck.head = (0, 0, 24 * VOXEL_SIZE)
+b_neck.tail = (0, 0, 26 * VOXEL_SIZE)
 
 # 6) Head
 b_head = eb.new("Head")
 b_head.parent = b_neck
-b_head.head = (0, 1.5 * VOXEL_SIZE, 36 * VOXEL_SIZE)
-b_head.tail = (0, 2.0 * VOXEL_SIZE, 45 * VOXEL_SIZE)
+b_head.head = (0, 0, 26 * VOXEL_SIZE)
+b_head.tail = (0, 0, 36 * VOXEL_SIZE)
 
-# Left Arm Bones
+# Standard Socket: Socket_Head (top center of head cranium)
+b_sock_head = eb.new("Socket_Head")
+b_sock_head.parent = b_head
+b_sock_head.head = (0.0, -0.5 * VOXEL_SIZE, 36.0 * VOXEL_SIZE)
+b_sock_head.tail = (0.0, -0.5 * VOXEL_SIZE, 38.0 * VOXEL_SIZE)
+
+# Standard Socket: Socket_Back (upper rear spine)
+b_sock_back = eb.new("Socket_Back")
+b_sock_back.parent = b_chest
+b_sock_back.head = (0.0, -3.5 * VOXEL_SIZE, 22.0 * VOXEL_SIZE)
+b_sock_back.tail = (0.0, -4.5 * VOXEL_SIZE, 22.0 * VOXEL_SIZE)
+
+# Left Arm Bones & Pauldron
 b_sh_l = eb.new("Shoulder.L")
 b_sh_l.parent = b_chest
-b_sh_l.head = (4.0 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 32.0 * VOXEL_SIZE)
-b_sh_l.tail = (7.0 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 32.0 * VOXEL_SIZE)
+b_sh_l.head = (3.5 * VOXEL_SIZE, 0, 24 * VOXEL_SIZE)
+b_sh_l.tail = (6.5 * VOXEL_SIZE, 0, 24 * VOXEL_SIZE)
 
 b_arm_l = eb.new("UpperArm.L")
 b_arm_l.parent = b_sh_l
-b_arm_l.head = (7.0 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 32.0 * VOXEL_SIZE)
-b_arm_l.tail = (8.0 * VOXEL_SIZE, 1.0 * VOXEL_SIZE, 24.0 * VOXEL_SIZE)
+b_arm_l.head = (6.5 * VOXEL_SIZE, 0, 24 * VOXEL_SIZE)
+b_arm_l.tail = (6.5 * VOXEL_SIZE, 0, 19 * VOXEL_SIZE)
 
 b_fore_l = eb.new("Forearm.L")
 b_fore_l.parent = b_arm_l
-b_fore_l.head = (8.0 * VOXEL_SIZE, 1.0 * VOXEL_SIZE, 24.0 * VOXEL_SIZE)
-b_fore_l.tail = (8.5 * VOXEL_SIZE, 2.0 * VOXEL_SIZE, 17.0 * VOXEL_SIZE)
+b_fore_l.head = (6.5 * VOXEL_SIZE, 0, 19 * VOXEL_SIZE)
+b_fore_l.tail = (6.5 * VOXEL_SIZE, 0, 13 * VOXEL_SIZE)
 
 b_hand_l = eb.new("Hand.L")
 b_hand_l.parent = b_fore_l
-b_hand_l.head = (8.5 * VOXEL_SIZE, 2.0 * VOXEL_SIZE, 17.0 * VOXEL_SIZE)
-b_hand_l.tail = (8.5 * VOXEL_SIZE, 4.5 * VOXEL_SIZE, 14.0 * VOXEL_SIZE)
+b_hand_l.head = (6.5 * VOXEL_SIZE, 1.0 * VOXEL_SIZE, 12 * VOXEL_SIZE)
+b_hand_l.tail = (6.5 * VOXEL_SIZE, 3.0 * VOXEL_SIZE, 9 * VOXEL_SIZE)
 
-# Right Arm Bones (Skeletal)
+# Standard Socket: Socket_Hand_L (palm center)
+b_sock_hand_l = eb.new("Socket_Hand_L")
+b_sock_hand_l.parent = b_hand_l
+b_sock_hand_l.head = (6.5 * VOXEL_SIZE, 1.0 * VOXEL_SIZE, 10.5 * VOXEL_SIZE)
+b_sock_hand_l.tail = (6.5 * VOXEL_SIZE, 2.5 * VOXEL_SIZE, 10.5 * VOXEL_SIZE)
+
+# Right Arm Bones & Pauldron
 b_sh_r = eb.new("Shoulder.R")
 b_sh_r.parent = b_chest
-b_sh_r.head = (-4.0 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 32.0 * VOXEL_SIZE)
-b_sh_r.tail = (-7.0 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 32.0 * VOXEL_SIZE)
+b_sh_r.head = (-3.5 * VOXEL_SIZE, 0, 24 * VOXEL_SIZE)
+b_sh_r.tail = (-6.5 * VOXEL_SIZE, 0, 24 * VOXEL_SIZE)
 
 b_arm_r = eb.new("UpperArm.R")
 b_arm_r.parent = b_sh_r
-b_arm_r.head = (-7.0 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 32.0 * VOXEL_SIZE)
-b_arm_r.tail = (-8.0 * VOXEL_SIZE, 1.0 * VOXEL_SIZE, 24.0 * VOXEL_SIZE)
+b_arm_r.head = (-6.5 * VOXEL_SIZE, 0, 24 * VOXEL_SIZE)
+b_arm_r.tail = (-6.5 * VOXEL_SIZE, 0, 19 * VOXEL_SIZE)
 
 b_fore_r = eb.new("Forearm.R")
 b_fore_r.parent = b_arm_r
-b_fore_r.head = (-8.0 * VOXEL_SIZE, 1.0 * VOXEL_SIZE, 24.0 * VOXEL_SIZE)
-b_fore_r.tail = (-8.5 * VOXEL_SIZE, 2.0 * VOXEL_SIZE, 17.0 * VOXEL_SIZE)
+b_fore_r.head = (-6.5 * VOXEL_SIZE, 0, 19 * VOXEL_SIZE)
+b_fore_r.tail = (-6.5 * VOXEL_SIZE, 0, 13 * VOXEL_SIZE)
 
 b_hand_r = eb.new("Hand.R")
 b_hand_r.parent = b_fore_r
-b_hand_r.head = (-8.5 * VOXEL_SIZE, 2.0 * VOXEL_SIZE, 17.0 * VOXEL_SIZE)
-b_hand_r.tail = (-8.5 * VOXEL_SIZE, 4.5 * VOXEL_SIZE, 14.0 * VOXEL_SIZE)
+b_hand_r.head = (-6.5 * VOXEL_SIZE, 1.0 * VOXEL_SIZE, 12 * VOXEL_SIZE)
+b_hand_r.tail = (-6.5 * VOXEL_SIZE, 3.0 * VOXEL_SIZE, 9 * VOXEL_SIZE)
+
+# Standard Socket: Socket_Hand_R (palm center)
+b_sock_hand_r = eb.new("Socket_Hand_R")
+b_sock_hand_r.parent = b_hand_r
+b_sock_hand_r.head = (-7.5 * VOXEL_SIZE, 1.0 * VOXEL_SIZE, 10.5 * VOXEL_SIZE)
+b_sock_hand_r.tail = (-7.5 * VOXEL_SIZE, 2.5 * VOXEL_SIZE, 10.5 * VOXEL_SIZE)
 
 # Left Leg Bones
 b_uleg_l = eb.new("UpperLeg.L")
 b_uleg_l.parent = b_hips
-b_uleg_l.head = (3.5 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 18.0 * VOXEL_SIZE)
-b_uleg_l.tail = (3.5 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 10.0 * VOXEL_SIZE)
+b_uleg_l.head = (3.5 * VOXEL_SIZE, 0, 14 * VOXEL_SIZE)
+b_uleg_l.tail = (3.5 * VOXEL_SIZE, 0, 9 * VOXEL_SIZE)
 
 b_lleg_l = eb.new("LowerLeg.L")
 b_lleg_l.parent = b_uleg_l
-b_lleg_l.head = (3.5 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 10.0 * VOXEL_SIZE)
-b_lleg_l.tail = (3.5 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 3.0 * VOXEL_SIZE)
+b_lleg_l.head = (3.5 * VOXEL_SIZE, 0, 9 * VOXEL_SIZE)
+b_lleg_l.tail = (3.5 * VOXEL_SIZE, 0, 4 * VOXEL_SIZE)
 
 b_foot_l = eb.new("Foot.L")
 b_foot_l.parent = b_lleg_l
-b_foot_l.head = (3.5 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 3.0 * VOXEL_SIZE)
-b_foot_l.tail = (3.5 * VOXEL_SIZE, 3.5 * VOXEL_SIZE, 0.0)
+b_foot_l.head = (3.5 * VOXEL_SIZE, 0, 4 * VOXEL_SIZE)
+b_foot_l.tail = (3.5 * VOXEL_SIZE, 3.0 * VOXEL_SIZE, 0)
 
 # Right Leg Bones
 b_uleg_r = eb.new("UpperLeg.R")
 b_uleg_r.parent = b_hips
-b_uleg_r.head = (-3.5 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 18.0 * VOXEL_SIZE)
-b_uleg_r.tail = (-3.5 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 10.0 * VOXEL_SIZE)
+b_uleg_r.head = (-3.5 * VOXEL_SIZE, 0, 14 * VOXEL_SIZE)
+b_uleg_r.tail = (-3.5 * VOXEL_SIZE, 0, 9 * VOXEL_SIZE)
 
 b_lleg_r = eb.new("LowerLeg.R")
 b_lleg_r.parent = b_uleg_r
-b_lleg_r.head = (-3.5 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 10.0 * VOXEL_SIZE)
-b_lleg_r.tail = (-3.5 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 3.0 * VOXEL_SIZE)
+b_lleg_r.head = (-3.5 * VOXEL_SIZE, 0, 9 * VOXEL_SIZE)
+b_lleg_r.tail = (-3.5 * VOXEL_SIZE, 0, 4 * VOXEL_SIZE)
 
 b_foot_r = eb.new("Foot.R")
 b_foot_r.parent = b_lleg_r
-b_foot_r.head = (-3.5 * VOXEL_SIZE, 0.5 * VOXEL_SIZE, 3.0 * VOXEL_SIZE)
-b_foot_r.tail = (-3.5 * VOXEL_SIZE, 3.5 * VOXEL_SIZE, 0.0)
+b_foot_r.head = (-3.5 * VOXEL_SIZE, 0, 4 * VOXEL_SIZE)
+b_foot_r.tail = (-3.5 * VOXEL_SIZE, 3.0 * VOXEL_SIZE, 0)
 
 # Claw Slash Trail VFX Bones
 b_trail_l = eb.new("ClawTrail.L")
 b_trail_l.parent = b_root
-b_trail_l.head = (8.0 * VOXEL_SIZE, 8.0 * VOXEL_SIZE, 20.0 * VOXEL_SIZE)
-b_trail_l.tail = (8.0 * VOXEL_SIZE, 14.0 * VOXEL_SIZE, 14.0 * VOXEL_SIZE)
+b_trail_l.head = (7.0 * VOXEL_SIZE, 7.0 * VOXEL_SIZE, 17.0 * VOXEL_SIZE)
+b_trail_l.tail = (7.0 * VOXEL_SIZE, 11.0 * VOXEL_SIZE, 12.0 * VOXEL_SIZE)
 
 b_trail_r = eb.new("ClawTrail.R")
 b_trail_r.parent = b_root
-b_trail_r.head = (-8.0 * VOXEL_SIZE, 8.0 * VOXEL_SIZE, 20.0 * VOXEL_SIZE)
-b_trail_r.tail = (-8.0 * VOXEL_SIZE, 14.0 * VOXEL_SIZE, 14.0 * VOXEL_SIZE)
+b_trail_r.head = (-8.0 * VOXEL_SIZE, 7.0 * VOXEL_SIZE, 17.0 * VOXEL_SIZE)
+b_trail_r.tail = (-8.0 * VOXEL_SIZE, 11.0 * VOXEL_SIZE, 12.0 * VOXEL_SIZE)
 
 bpy.ops.object.mode_set(mode='OBJECT')
 
-# Assign Rigid Vertex Groups
 ALL_BONE_NAMES = [
     "Root", "Hips", "Spine", "Chest", "Neck", "Head",
     "Shoulder.L", "UpperArm.L", "Forearm.L", "Hand.L",
     "Shoulder.R", "UpperArm.R", "Forearm.R", "Hand.R",
     "UpperLeg.L", "LowerLeg.L", "Foot.L",
     "UpperLeg.R", "LowerLeg.R", "Foot.R",
-    "ClawTrail.L", "ClawTrail.R"
+    "ClawTrail.L", "ClawTrail.R",
+    "Socket_Hand_R", "Socket_Hand_L", "Socket_Head", "Socket_Back"
 ]
 
 vgroups = {b: zombie_obj.vertex_groups.new(name=b) for b in ALL_BONE_NAMES}
@@ -606,7 +714,7 @@ bpy.ops.mesh.dissolve_limited(angle_limit=0.0001)
 bpy.ops.mesh.tris_convert_to_quads()
 bpy.ops.object.mode_set(mode='OBJECT')
 
-print(f">>> Mesh Optimized: {len(zombie_obj.data.vertices)} vertices, {len(zombie_obj.data.polygons)} polygons.")
+print(f">>> Optimized Watertight Mesh: {len(zombie_obj.data.vertices)} verts, {len(zombie_obj.data.polygons)} polys.")
 
 # Bind Armature Modifier
 arm_mod = zombie_obj.modifiers.new(name="Armature", type='ARMATURE')
@@ -615,9 +723,9 @@ arm_mod.use_vertex_groups = True
 zombie_obj.parent = arm_obj
 
 # -----------------------------------------------------------------
-# 6. Keyframe Animation: Shambling Walk & 5-Phase Claw Strike
+# 6. Keyframe Animation: Shambling Walk (1-40) & 5-Phase Attack (41-80)
 # -----------------------------------------------------------------
-print(">>> Keyframing 80-Frame Animation: Shambling Walk (1-40) & Violent Claw Strike (41-80)...")
+print(">>> Keyframing 80-Frame Animation: Trove Walk (1-40) & Violent Claw Strike (41-80)...")
 bpy.context.view_layer.objects.active = arm_obj
 bpy.ops.object.mode_set(mode='POSE')
 
@@ -638,19 +746,21 @@ def kf(bone, frame, loc=None, rot=None, scale=None):
 
 timeline_data = [
     # -------------------------------------------------------------
-    # PHASE A: SHAMBLING ZOMBIE WALK (Frames 1–40, 40-frame loop)
+    # PHASE A: TROVE BOUNCY SHAMBLING WALK CYCLE (Frames 1–40)
     # -------------------------------------------------------------
-    # Frame 1: Limping stance (Right foot forward, Left leg dragging back, arms reaching forward)
+    # Frame 1: Limping Stride Contact (Right foot forward, Left leg dragging back)
     (1, {
-        "Hips":        ((0, 0, 0), (-6, 5, -3), (1, 1, 1)),
-        "Spine":       (None, (-15, 0, -2), None),
-        "Chest":       (None, (-10, -3, 3), None),
-        "Neck":        (None, (5, 6, -5), None),
-        "Head":        (None, (6, 10, -6), None),
-        "UpperArm.L":  (None, (45, -8, 12), None),
+        "Hips":        ((0, 0, 0), (-4, 3, -2), (1, 1, 1)),
+        "Spine":       (None, (-8, 0, -2), None),
+        "Chest":       (None, (-6, -2, 2), None),
+        "Neck":        (None, (8, 4, -3), None),
+        "Head":        (None, (8, 6, -4), None),
+        "Shoulder.L":  (None, (0, 0, 0), None),
+        "UpperArm.L":  (None, (42, -6, 10), None),
         "Forearm.L":   (None, (20, 0, 5), None),
         "Hand.L":      (None, (-15, 0, -5), None),
-        "UpperArm.R":  (None, (55, 8, -12), None),
+        "Shoulder.R":  (None, (0, 0, 0), None),
+        "UpperArm.R":  (None, (50, 6, -10), None),
         "Forearm.R":   (None, (15, 0, -5), None),
         "Hand.R":      (None, (-20, 0, 5), None),
         "UpperLeg.L":  (None, (-18, 0, 4), None),
@@ -662,14 +772,14 @@ timeline_data = [
         "ClawTrail.L": (None, None, (0, 0, 0)),
         "ClawTrail.R": (None, None, (0, 0, 0)),
     }),
-    # Frame 10: Vault over right foot, left leg drags forward
+    # Frame 10: Vault over right foot, Trove bounce up
     (10, {
-        "Hips":        ((0, 0.012, 0.010), (-4, 3, 2), (1, 1, 1)),
-        "Spine":       (None, (-16, 0, 2), None),
-        "Chest":       (None, (-8, 0, 2), None),
-        "Head":        (None, (4, -8, 5), None),
-        "UpperArm.L":  (None, (38, -6, 10), None),
-        "UpperArm.R":  (None, (48, 6, -10), None),
+        "Hips":        ((0, 0.012, 0.012), (-3, 2, 2), (1, 1, 1)),
+        "Spine":       (None, (-10, 0, 2), None),
+        "Chest":       (None, (-6, 0, 2), None),
+        "Head":        (None, (6, -4, 3), None),
+        "UpperArm.L":  (None, (36, -4, 8), None),
+        "UpperArm.R":  (None, (44, 4, -8), None),
         "UpperLeg.L":  (None, (-5, 0, 4), None),
         "LowerLeg.L":  (None, (-18, 0, 0), None),
         "Foot.L":      (None, (15, 0, 0), None),
@@ -679,14 +789,14 @@ timeline_data = [
         "ClawTrail.L": (None, None, (0, 0, 0)),
         "ClawTrail.R": (None, None, (0, 0, 0)),
     }),
-    # Frame 20: The Limp Drop: Left foot scrapes awkwardly, hips drop
+    # Frame 20: Heavy Limp Drop on Left Foot
     (20, {
-        "Hips":        ((-0.008, 0.020, -0.012), (-6, -5, 5), (1, 1, 1)),
-        "Spine":       (None, (-18, 0, -3), None),
-        "Chest":       (None, (-12, 0, -3), None),
-        "Head":        (None, (8, -12, 8), None),
-        "UpperArm.L":  (None, (55, -10, 14), None),
-        "UpperArm.R":  (None, (40, 10, -8), None),
+        "Hips":        ((-0.008, 0.020, -0.014), (-5, -4, 3), (1, 1, 1)),
+        "Spine":       (None, (-12, 0, -2), None),
+        "Chest":       (None, (-8, 0, -2), None),
+        "Head":        (None, (10, -8, 6), None),
+        "UpperArm.L":  (None, (50, -8, 12), None),
+        "UpperArm.R":  (None, (38, 8, -6), None),
         "UpperLeg.L":  (None, (18, 0, 5), None),
         "LowerLeg.L":  (None, (-8, 0, 0), None),
         "Foot.L":      (None, (-8, 0, 0), None),
@@ -696,14 +806,14 @@ timeline_data = [
         "ClawTrail.L": (None, None, (0, 0, 0)),
         "ClawTrail.R": (None, None, (0, 0, 0)),
     }),
-    # Frame 30: Recovery step: Right leg swings back to front
+    # Frame 30: Recovery step: Right leg swings back forward
     (30, {
-        "Hips":        ((0, 0.008, 0.005), (-4, 2, -2), (1, 1, 1)),
-        "Spine":       (None, (-15, 0, 0), None),
-        "Chest":       (None, (-10, 0, 0), None),
-        "Head":        (None, (5, 5, -4), None),
-        "UpperArm.L":  (None, (46, 0, 10), None),
-        "UpperArm.R":  (None, (52, 0, -10), None),
+        "Hips":        ((0, 0.008, 0.006), (-3, 2, -1), (1, 1, 1)),
+        "Spine":       (None, (-9, 0, 0), None),
+        "Chest":       (None, (-6, 0, 0), None),
+        "Head":        (None, (6, 4, -2), None),
+        "UpperArm.L":  (None, (42, 0, 8), None),
+        "UpperArm.R":  (None, (48, 0, -8), None),
         "UpperLeg.L":  (None, (6, 0, 3), None),
         "LowerLeg.L":  (None, (-4, 0, 0), None),
         "Foot.L":      (None, (-2, 0, 0), None),
@@ -715,15 +825,17 @@ timeline_data = [
     }),
     # Frame 40: Seamless Walk Loop Reset (Matches Frame 1)
     (40, {
-        "Hips":        ((0, 0, 0), (-6, 5, -3), (1, 1, 1)),
-        "Spine":       (None, (-15, 0, -2), None),
-        "Chest":       (None, (-10, -3, 3), None),
-        "Neck":        (None, (5, 6, -5), None),
-        "Head":        (None, (6, 10, -6), None),
-        "UpperArm.L":  (None, (45, -8, 12), None),
+        "Hips":        ((0, 0, 0), (-4, 3, -2), (1, 1, 1)),
+        "Spine":       (None, (-8, 0, -2), None),
+        "Chest":       (None, (-6, -2, 2), None),
+        "Neck":        (None, (8, 4, -3), None),
+        "Head":        (None, (8, 6, -4), None),
+        "Shoulder.L":  (None, (0, 0, 0), None),
+        "UpperArm.L":  (None, (42, -6, 10), None),
         "Forearm.L":   (None, (20, 0, 5), None),
         "Hand.L":      (None, (-15, 0, -5), None),
-        "UpperArm.R":  (None, (55, 8, -12), None),
+        "Shoulder.R":  (None, (0, 0, 0), None),
+        "UpperArm.R":  (None, (50, 6, -10), None),
         "Forearm.R":   (None, (15, 0, -5), None),
         "Hand.R":      (None, (-20, 0, 5), None),
         "UpperLeg.L":  (None, (-18, 0, 4), None),
@@ -736,89 +848,93 @@ timeline_data = [
         "ClawTrail.R": (None, None, (0, 0, 0)),
     }),
     # -------------------------------------------------------------
-    # PHASE B: VIOLENT CLAW STRIKE & LUNGE ATTACK (Frames 41–80)
+    # PHASE B: 5-PHASE EXPLOSIVE DOUBLE-CLAW LUNGE ATTACK (Frames 41–80)
     # -------------------------------------------------------------
-    # Frame 44 (Telegraph 1: Target Spotted, Alert Crouch)
+    # Frame 44 (Phase 1a: Alert Crouch, Claws Tensing)
     (44, {
-        "Hips":        ((0, -0.015, -0.025), (-12, 0, 0), (1, 1, 1)),
-        "Spine":       (None, (-22, 0, 0), None),
-        "Chest":       (None, (-16, 0, 0), None),
-        "Head":        (None, (-14, 0, 0), None),
-        "UpperArm.L":  (None, (25, 0, 18), None),
-        "Forearm.L":   (None, (-25, 0, 0), None),
-        "UpperArm.R":  (None, (25, 0, -18), None),
-        "Forearm.R":   (None, (-25, 0, 0), None),
+        "Hips":        ((0, -0.015, -0.022), (-6, 0, 0), (1, 1, 1)),
+        "Spine":       (None, (-12, 0, 0), None),
+        "Chest":       (None, (-10, 0, 0), None),
+        "Head":        (None, (14, 0, 0), None),
+        "UpperArm.L":  (None, (20, 0, 18), None),
+        "Forearm.L":   (None, (-20, 0, 0), None),
+        "UpperArm.R":  (None, (20, 0, -18), None),
+        "Forearm.R":   (None, (-20, 0, 0), None),
         "UpperLeg.L":  (None, (15, 0, 5), None),
-        "LowerLeg.L":  (None, (-30, 0, 0), None),
+        "LowerLeg.L":  (None, (-25, 0, 0), None),
         "UpperLeg.R":  (None, (-10, 0, -5), None),
-        "LowerLeg.R":  (None, (-25, 0, 0), None),
+        "LowerLeg.R":  (None, (-20, 0, 0), None),
         "ClawTrail.L": (None, None, (0, 0, 0)),
         "ClawTrail.R": (None, None, (0, 0, 0)),
     }),
-    # Frame 50 (Telegraph 2: Deep Kinetic Coil Back, Arms High Overhead, Shriek)
+    # Frame 50 (Phase 1b: Deep Kinetic Coil Back, Arms Raised Overhead, Threat Snarl)
     (50, {
-        "Hips":        ((0, -0.050, -0.040), (12, 0, 0), (1, 1, 1)),
-        "Spine":       (None, (22, 0, 0), None),
-        "Chest":       (None, (18, 0, 0), None),
-        "Neck":        (None, (8, 0, 0), None),
+        "Hips":        ((0, -0.045, -0.028), (10, 0, 0), (1, 1, 1)),
+        "Spine":       (None, (16, 0, 0), None),
+        "Chest":       (None, (14, 0, 0), None),
+        "Neck":        (None, (14, 0, 0), None),
         "Head":        (None, (22, 0, 0), None),
-        "UpperArm.L":  (None, (-65, -12, 30), None),
+        "Shoulder.L":  (None, (0, 0, 15), None),
+        "UpperArm.L":  (None, (-60, -14, 28), None),
         "Forearm.L":   (None, (-40, 0, 12), None),
         "Hand.L":      (None, (-25, 0, -8), None),
-        "UpperArm.R":  (None, (-70, 12, -30), None),
+        "Shoulder.R":  (None, (0, 0, -15), None),
+        "UpperArm.R":  (None, (-65, 14, -28), None),
         "Forearm.R":   (None, (-45, 0, -12), None),
         "Hand.R":      (None, (-30, 0, 8), None),
         "UpperLeg.L":  (None, (-22, 0, 6), None),
-        "LowerLeg.L":  (None, (-35, 0, 0), None),
-        "UpperLeg.R":  (None, (12, 0, -6), None),
-        "LowerLeg.R":  (None, (-28, 0, 0), None),
+        "LowerLeg.L":  (None, (-32, 0, 0), None),
+        "UpperLeg.R":  (None, (14, 0, -6), None),
+        "LowerLeg.R":  (None, (-26, 0, 0), None),
         "ClawTrail.L": (None, None, (0, 0, 0)),
         "ClawTrail.R": (None, None, (0, 0, 0)),
     }),
-    # Frame 53 (Active Hit Window 1: Explosive Lunge Acceleration)
+    # Frame 53 (Phase 2a: Explosive Lunge Acceleration)
     (53, {
-        "Hips":        ((0, 0.040, -0.050), (-10, 0, 0), (1, 1, 1)),
-        "Spine":       (None, (-18, 0, 0), None),
-        "Chest":       (None, (-14, 0, 0), None),
-        "Head":        (None, (-6, 0, 0), None),
-        "UpperArm.L":  (None, (15, 0, 15), None),
-        "Forearm.L":   (None, (10, 0, 0), None),
-        "UpperArm.R":  (None, (15, 0, -15), None),
-        "Forearm.R":   (None, (10, 0, 0), None),
-        "ClawTrail.L": (None, None, (0.35, 0.35, 0.35)),
-        "ClawTrail.R": (None, None, (0.35, 0.35, 0.35)),
+        "Hips":        ((0, 0.028, -0.022), (-4, 0, 0), (1, 1, 1)),
+        "Spine":       (None, (-4, 0, 0), None),
+        "Chest":       (None, (-4, 0, 0), None),
+        "Head":        (None, (10, 0, 0), None),
+        "UpperArm.L":  (None, (25, 0, 12), None),
+        "Forearm.L":   (None, (18, 0, 0), None),
+        "UpperArm.R":  (None, (28, 0, -12), None),
+        "Forearm.R":   (None, (20, 0, 0), None),
+        "ClawTrail.L": (None, None, (0.45, 0.45, 0.45)),
+        "ClawTrail.R": (None, None, (0.45, 0.45, 0.45)),
     }),
-    # Frame 56 (PEAK IMPACT: EXPLOSIVE DOWNWARD DOUBLE-CLAW SLASH LUNGE!)
+    # Frame 56 (Phase 2b: PEAK IMPACT - EXPLOSIVE DOWNWARD DOUBLE-CLAW SLASH LUNGE!)
     (56, {
-        "Hips":        ((0, 0.110, -0.065), (-25, 0, 0), (1, 1, 1)),
-        "Spine":       (None, (-36, 0, 0), None),
-        "Chest":       (None, (-28, 0, 0), None),
-        "Neck":        (None, (-8, 0, 0), None),
-        "Head":        (None, (-10, 0, 0), None),
-        "UpperArm.L":  (None, (50, -8, 8), None),
-        "Forearm.L":   (None, (38, 0, 4), None),
-        "Hand.L":      (None, (22, 0, 0), None),
-        "UpperArm.R":  (None, (55, 8, -8), None),
-        "Forearm.R":   (None, (42, 0, -4), None),
-        "Hand.R":      (None, (25, 0, 0), None),
-        "UpperLeg.L":  (None, (32, 0, 6), None),
-        "LowerLeg.L":  (None, (-50, 0, 0), None),
-        "Foot.L":      (None, (18, 0, 0), None),
-        "UpperLeg.R":  (None, (-30, 0, -6), None),
-        "LowerLeg.R":  (None, (-12, 0, 0), None),
-        "Foot.R":      (None, (-18, 0, 0), None),
+        "Hips":        ((0, 0.055, -0.028), (-5, 0, 0), (1, 1, 1)),
+        "Spine":       (None, (-7, 0, 0), None),
+        "Chest":       (None, (-7, 0, 0), None),
+        "Neck":        (None, (12, 0, 0), None),
+        "Head":        (None, (15, 0, 0), None),
+        "Shoulder.L":  (None, (0, 0, 5), None),
+        "UpperArm.L":  (None, (48, -6, 10), None),
+        "Forearm.L":   (None, (30, 0, 5), None),
+        "Hand.L":      (None, (18, 0, 0), None),
+        "Shoulder.R":  (None, (0, 0, -5), None),
+        "UpperArm.R":  (None, (54, 6, -10), None),
+        "Forearm.R":   (None, (35, 0, -5), None),
+        "Hand.R":      (None, (22, 0, 0), None),
+        "UpperLeg.L":  (None, (20, 0, 5), None),
+        "LowerLeg.L":  (None, (-30, 0, 0), None),
+        "Foot.L":      (None, (12, 0, 0), None),
+        "UpperLeg.R":  (None, (-18, 0, -5), None),
+        "LowerLeg.R":  (None, (-10, 0, 0), None),
+        "Foot.R":      (None, (-10, 0, 0), None),
         "ClawTrail.L": (None, None, (1.0, 1.0, 1.0)),
         "ClawTrail.R": (None, None, (1.0, 1.0, 1.0)),
     }),
-    # Frame 60 (Phase 3: Overshoot / Ground Reach)
+    # Frame 60 (Phase 3: Overshoot / Momentum Extension)
     (60, {
-        "Hips":        ((0, 0.125, -0.075), (-28, 0, 0), (1, 1, 1)),
-        "Spine":       (None, (-40, 0, 0), None),
-        "Chest":       (None, (-30, 0, 0), None),
-        "UpperArm.L":  (None, (62, 0, 6), None),
-        "UpperArm.R":  (None, (65, 0, -6), None),
-        "ClawTrail.L": (None, None, (0.45, 0.45, 0.45)),
-        "ClawTrail.R": (None, None, (0.45, 0.45, 0.45)),
+        "Hips":        ((0, 0.070, -0.032), (-6, 0, 0), (1, 1, 1)),
+        "Spine":       (None, (-11, 0, 0), None),
+        "Chest":       (None, (-8, 0, 0), None),
+        "UpperArm.L":  (None, (58, 0, 8), None),
+        "UpperArm.R":  (None, (62, 0, -8), None),
+        "ClawTrail.L": (None, None, (0.40, 0.40, 0.40)),
+        "ClawTrail.R": (None, None, (0.40, 0.40, 0.40)),
     }),
     # Frame 63 (Trail Dissolves)
     (63, {
@@ -827,45 +943,47 @@ timeline_data = [
     }),
     # Frame 66 (Phase 4: Zanshin / Hit-Stop Rigid Hold)
     (66, {
-        "Hips":        ((0, 0.110, -0.065), (-24, 0, 0), (1, 1, 1)),
-        "Spine":       (None, (-34, 0, 0), None),
-        "Chest":       (None, (-24, 0, 0), None),
-        "Head":        (None, (-6, 0, 0), None),
+        "Hips":        ((0, 0.052, -0.026), (-4, 0, 0), (1, 1, 1)),
+        "Spine":       (None, (-8, 0, 0), None),
+        "Chest":       (None, (-6, 0, 0), None),
+        "Head":        (None, (12, 0, 0), None),
         "UpperArm.L":  (None, (48, 0, 10), None),
         "UpperArm.R":  (None, (52, 0, -10), None),
         "ClawTrail.L": (None, None, (0, 0, 0)),
         "ClawTrail.R": (None, None, (0, 0, 0)),
     }),
-    # Frame 70 (Zanshin Tremor / Breath Shudder)
+    # Frame 70 (Recoil Breath Shudder)
     (70, {
-        "Chest":       (None, (-27, 2, -1), None),
-        "Head":        (None, (-10, -2, 2), None),
+        "Chest":       (None, (-8, 2, -1), None),
+        "Head":        (None, (10, -2, 2), None),
     }),
     # Frame 75 (Phase 5: Recovery Stumble)
     (75, {
-        "Hips":        ((0, 0.040, -0.025), (-10, 3, -2), (1, 1, 1)),
-        "Spine":       (None, (-18, 0, 0), None),
-        "Chest":       (None, (-14, 0, 0), None),
-        "UpperArm.L":  (None, (46, 0, 10), None),
-        "UpperArm.R":  (None, (54, 0, -12), None),
-        "UpperLeg.L":  (None, (5, 0, 0), None),
-        "LowerLeg.L":  (None, (-18, 0, 0), None),
-        "UpperLeg.R":  (None, (-8, 0, 0), None),
-        "LowerLeg.R":  (None, (-12, 0, 0), None),
+        "Hips":        ((0, 0.022, -0.012), (-4, 2, -1), (1, 1, 1)),
+        "Spine":       (None, (-8, 0, 0), None),
+        "Chest":       (None, (-6, 0, 0), None),
+        "UpperArm.L":  (None, (44, 0, 8), None),
+        "UpperArm.R":  (None, (50, 0, -10), None),
+        "UpperLeg.L":  (None, (6, 0, 0), None),
+        "LowerLeg.L":  (None, (-14, 0, 0), None),
+        "UpperLeg.R":  (None, (-6, 0, 0), None),
+        "LowerLeg.R":  (None, (-10, 0, 0), None),
         "ClawTrail.L": (None, None, (0, 0, 0)),
         "ClawTrail.R": (None, None, (0, 0, 0)),
     }),
-    # Frame 80: Full Reset back to Ready Shambling Stance (Matches Frame 1)
+    # Frame 80: Full Reset back to Walk Stance (Matches Frame 1)
     (80, {
-        "Hips":        ((0, 0, 0), (-6, 5, -3), (1, 1, 1)),
-        "Spine":       (None, (-15, 0, -2), None),
-        "Chest":       (None, (-10, -3, 3), None),
-        "Neck":        (None, (5, 6, -5), None),
-        "Head":        (None, (6, 10, -6), None),
-        "UpperArm.L":  (None, (45, -8, 12), None),
+        "Hips":        ((0, 0, 0), (-4, 3, -2), (1, 1, 1)),
+        "Spine":       (None, (-8, 0, -2), None),
+        "Chest":       (None, (-6, -2, 2), None),
+        "Neck":        (None, (8, 4, -3), None),
+        "Head":        (None, (8, 6, -4), None),
+        "Shoulder.L":  (None, (0, 0, 0), None),
+        "UpperArm.L":  (None, (42, -6, 10), None),
         "Forearm.L":   (None, (20, 0, 5), None),
         "Hand.L":      (None, (-15, 0, -5), None),
-        "UpperArm.R":  (None, (55, 8, -12), None),
+        "Shoulder.R":  (None, (0, 0, 0), None),
+        "UpperArm.R":  (None, (50, 6, -10), None),
         "Forearm.R":   (None, (15, 0, -5), None),
         "Hand.R":      (None, (-20, 0, 5), None),
         "UpperLeg.L":  (None, (-18, 0, 4), None),
@@ -895,9 +1013,9 @@ if arm_obj.animation_data and arm_obj.animation_data.action:
 bpy.ops.object.mode_set(mode='OBJECT')
 
 # -----------------------------------------------------------------
-# 7. Cycles Render Engine, Studio Lighting & Dynamic Framing
+# 7. Cycles AgX Render & Front 3/4 Dynamic Camera Framing
 # -----------------------------------------------------------------
-print(">>> Setting up Cycles AgX Render & Dynamic Depsgraph Camera...")
+print(">>> Configuring Cycles AgX 128-sample Studio Showcase...")
 scene.render.engine = 'CYCLES'
 try:
     cpref = bpy.context.preferences.addons['cycles'].preferences
@@ -927,9 +1045,9 @@ if not bg_node:
     out_node = scene.world.node_tree.nodes.get("World Output") or scene.world.node_tree.nodes.new(type='ShaderNodeOutputWorld')
     scene.world.node_tree.links.new(bg_node.outputs['Background'], out_node.inputs['Surface'])
 bg_node.inputs['Color'].default_value = (0.012, 0.016, 0.024, 1.0)
-bg_node.inputs['Strength'].default_value = 0.60
+bg_node.inputs['Strength'].default_value = 0.50
 
-# Dynamic Depsgraph Evaluated Camera Framing at Peak Attack Frame 56
+# Dynamic Depsgraph Evaluated Camera Framing at Peak Action Frame 56
 ACTION_FRAME = 56
 scene.frame_set(ACTION_FRAME)
 depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -947,27 +1065,26 @@ if all_corners:
     center = (min_co + max_co) * 0.5
     span = (max_co - min_co).length
 else:
-    center = Vector((0, 0.15, 0.35))
-    span = 0.75
+    center = Vector((0, 0.08, 0.35))
+    span = 0.78
 
 print(f">>> Evaluated Scene Center: {center}, Span: {span:.3f}m")
 
-# Independent Static Camera Target (Centered on character combat focus)
+# Independent Static Camera Target
 cam_target = bpy.data.objects.new("CamTarget_Zombie", None)
-cam_target.location = center + Vector((0, 0.02, 0.02))
+cam_target.location = Vector((center.x * 0.15, center.y + 0.03, center.z + span * 0.05))
 bpy.context.collection.objects.link(cam_target)
 
-# Heroic Perspective Camera
+# Heroic Front 3/4 Perspective Camera
 cam_data = bpy.data.cameras.new("Zombie_HeroCamera")
-cam_data.lens = 45
+cam_data.lens = 48
 cam_obj = bpy.data.objects.new("Zombie_HeroCamera", object_data=cam_data)
 
-# Elevated diagonal isometric framing (margin = 0.88 for 65-75% canvas occupancy)
-margin = 0.88
 fov_rad = cam_obj.data.angle
-dist = (span * 0.5) / math.tan(fov_rad * 0.5) * margin
-# View from front-left diagonal showing snarling face, glowing eye, exposed ribcage & slashing claws
-cam_obj.location = center + Vector((dist * 0.60, -dist * 0.70, dist * 0.48))
+dist = (span * 0.5) / math.tan(fov_rad * 0.5) * 0.82
+
+# Camera placed at -X, +Y, +Z to view face, glowing eye, skull fissure, 3D ribs, and slashing claws:
+cam_obj.location = cam_target.location + Vector((-dist * 0.48, dist * 0.80, dist * 0.42))
 
 track = cam_obj.constraints.new(type='TRACK_TO')
 track.target = cam_target
@@ -977,39 +1094,39 @@ track.up_axis = 'UP_Y'
 bpy.context.collection.objects.link(cam_obj)
 scene.camera = cam_obj
 
-# 4-Point Studio Lighting
-# 1) Key Sun Light: Warm crisp glint revealing cranium fracture and ribcage bones
+# 4-Point High-Fidelity Studio Lighting
+# 1) Key Sun Light: Directional glint casting crisp micro-voxel shadows across ribs, skull fracture & teeth
 key_sun = bpy.data.objects.new("Key_Sun", bpy.data.lights.new("Key_Sun", type='SUN'))
-key_sun.data.energy = 4.2
-key_sun.data.color = (1.0, 0.98, 0.92)
+key_sun.data.energy = 4.5
+key_sun.data.color = (1.0, 0.98, 0.94)
 key_sun.data.angle = math.radians(4)
-key_sun.rotation_euler = (math.radians(50), math.radians(20), math.radians(-35))
+key_sun.rotation_euler = (math.radians(-42), math.radians(22), math.radians(135))
 bpy.context.collection.objects.link(key_sun)
 
-# 2) Front Specular Fill Light: Illuminates snarl, teeth, and grasping claws
+# 2) Front Specular Fill Light: Illuminates face, glowing eye, and claws
 front_fill = bpy.data.objects.new("Front_Fill", bpy.data.lights.new("Front_Fill", type='AREA'))
-front_fill.data.energy = 200.0
-front_fill.data.color = (0.88, 0.94, 1.00)
+front_fill.data.energy = 240.0
+front_fill.data.color = (0.90, 0.95, 1.00)
 front_fill.data.size = 2.4
-front_fill.location = (1.2, -1.6, 0.9)
+front_fill.location = (-0.8, 1.6, 0.8)
 front_fill.rotation_euler = (math.radians(35), math.radians(-20), math.radians(-40))
 bpy.context.collection.objects.link(front_fill)
 
-# 3) Toxic Lime / Green Rim Backlight: Accentuates undead silhouette and glowing eye
+# 3) Toxic Lime / Green Rim Backlight: Accentuates undead chibi silhouette & edge contours
 rim_toxic = bpy.data.objects.new("Rim_ToxicGreen", bpy.data.lights.new("Rim_ToxicGreen", type='AREA'))
-rim_toxic.data.energy = 260.0
+rim_toxic.data.energy = 280.0
 rim_toxic.data.color = (0.35, 0.95, 0.15)
 rim_toxic.data.size = 2.2
-rim_toxic.location = (-1.5, 1.5, 1.1)
+rim_toxic.location = (1.5, -1.2, 0.9)
 rim_toxic.rotation_euler = (math.radians(-40), math.radians(40), math.radians(120))
 bpy.context.collection.objects.link(rim_toxic)
 
 # 4) Deep Shadow Fill Light: Soft ambient mood
 dark_fill = bpy.data.objects.new("Fill_Shadow", bpy.data.lights.new("Fill_Shadow", type='AREA'))
-dark_fill.data.energy = 130.0
-dark_fill.data.color = (0.15, 0.10, 0.22)
+dark_fill.data.energy = 120.0
+dark_fill.data.color = (0.16, 0.11, 0.24)
 dark_fill.data.size = 3.0
-dark_fill.location = (0.6, 1.6, -0.2)
+dark_fill.location = (0.6, 1.5, -0.1)
 bpy.context.collection.objects.link(dark_fill)
 
 # -----------------------------------------------------------------
@@ -1042,7 +1159,7 @@ bpy.ops.export_scene.gltf(
     export_apply=False
 )
 
-print(f">>> Rendering Key Impact Frame {ACTION_FRAME} (Double-Claw Strike) to {render_file}...")
+print(f">>> Rendering Key Impact Frame {ACTION_FRAME} to {render_file}...")
 scene.frame_set(ACTION_FRAME)
 scene.render.filepath = render_file
 bpy.ops.render.render(write_still=True)
@@ -1056,6 +1173,20 @@ js_content = f'window.ZOMBIE_BASE64 = "data:model/gltf-binary;base64,{glb_b64}";
 with open(js_file, 'w', encoding='utf-8') as f:
     f.write(js_content)
 
+# Mandatory Clean-up: Delete all .blend1 and test_*.png files
+blend1_file = os.path.join(output_dir, "zombie.blend1")
+if os.path.exists(blend1_file):
+    try:
+        os.remove(blend1_file)
+    except Exception:
+        pass
+for fname in os.listdir(output_dir):
+    if fname.startswith("test_") and fname.endswith(".png"):
+        try:
+            os.remove(os.path.join(output_dir, fname))
+        except Exception:
+            pass
+
 print("=================================================================")
-print(">>> [SUCCESS] Micro-Voxel Undead Zombie Generated & Exported!")
+print(">>> [SUCCESS] Authentic Trove Chibi Undead Zombie Complete!")
 print("=================================================================")

@@ -106,10 +106,36 @@ Never animate an attack as a meaningless 360°/720° helicopter spin. Melee atta
 
 ### Rule 7: Mandatory Visual Audit Loop
 Never declare an asset complete without running `view_file` on `<asset_name>_render.png`. Verify:
-- [ ] Weapon occupies 60%–80% of canvas diagonally.
+- [ ] Weapon or Character occupies 60%–80% of canvas diagonally.
 - [ ] Proper upright orientation (not flipped).
 - [ ] Saturated, rich emission without washed-out white clipping in AgX.
 - [ ] Attack ribbons spawn behind the cutting edge.
+
+### Rule 8: Mandatory Clean-up & Zero-Clutter Contract
+Every script and agent execution must keep the repository pristine:
+- Delete all temporary debug renders (`test_*.png`), Blender auto-save backups (`*.blend1`), temporary obj/ply files, and one-off test scripts before finishing.
+- Each asset package in `assets/<asset_name>/` must contain strictly the 5 canonical deliverables:
+  1. `build_<name>.py` (reproducible procedural generator)
+  2. `<name>.blend` (Blender source scene)
+  3. `<name>.glb` (game-ready binary glTF)
+  4. `<name>_render.png` (high-fidelity Cycles AgX beauty render)
+  5. `<name>_data.js` (Base64 data URI for zero-CORS embedding)
+
+### Rule 9: Trove Modular Biped & Standard Sockets Contract
+When authoring characters, monsters, weapons, or equipment:
+- **Never make characters flat Minecraft blocks**: Trove characters are stylized Chibi Bipeds with:
+  - **Segmented / Floating Limbs**: Hands/gloves, feet/boots, and pauldrons have visible breathing room / detachment gaps from torso and limbs. No continuous stretchy tubes of flesh!
+  - **Multi-Layered Micro-Voxel Relief**: Heads are $10 \times 10 \times 10$ bases, but hair, horns, crowns, masks, teeth, and armor must be extruded in multiple stepped micro-voxel layers for rich silhouette and self-shadowing.
+- **Rigid Dimensions & Socket Standard**:
+  - Global Voxel Unit: `VOXEL_SIZE = 0.015m` across all characters, weapons, and gear.
+  - Standard Biped Height: 32–36 voxels tall (~0.48m – 0.54m).
+  - Standard Sockets in Character Armature:
+    * `Socket_Hand_R`: inside right hand palm (origin for weapon grip).
+    * `Socket_Hand_L`: inside left hand palm (shield / off-hand / bow hold).
+    * `Socket_Head`: at top center of head (for hats, helmets, crowns).
+    * `Socket_Back`: on upper spine (for capes, wings, sheaths).
+  - Standard Weapon Grip: Handle thickness is exactly $2 \times 2$ or $3 \times 3$ voxels with handle grip center positioned at $(0, 0, 0)$ in rest pose so any weapon seamlessly snaps into `Socket_Hand_R`.
+  - Standard Equipment Fit: Helmets/hats have an internal clearance cavity of $10 \times 10 \times 10$ voxels to fit any standard head.
 
 ---
 
@@ -122,6 +148,6 @@ Every new asset must be wired into `index.html`:
    ```
 2. In `index.html`:
    - Add `<script src="assets/<folder>/<asset_name>_data.js"></script>`.
-   - Add a tab button in `<div class="model-tabs">`.
-   - Add the asset configuration to `const MODELS = { ... }` with name, base64 key, ideal camera position, and animation state details.
+   - Add a tab button in `<div class="asset-tabs">`.
+   - Add the asset configuration to `const ASSETS = { ... }` with name, base64 key, ideal camera position, and animation state details.
 3. Test in browser: start `python -m http.server 8080` and verify at `http://localhost:8080/index.html`.
