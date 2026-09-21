@@ -1,18 +1,17 @@
 """
 assets/swordsman/anim_attack_round.py
-Stand-Alone Minimal Left-Hand 180° Circular Attack:
-- Left hand (Hand.L & Socket_Hand_L) performs ONLY the circular rotation from -135° to -315°.
-- Trajectory in XY:
-  * Start (F8):  theta = -135° (X = -0.198m, Y = -0.198m, Z = 0.28m)
-  * Point 1 (F12): theta = -180° (X = -0.280m, Y =  0.000m, Z = 0.28m)
-  * Point 2 (F16): theta = -225° (X = -0.198m, Y = +0.198m, Z = 0.28m)
-  * Point 3 (F20): theta = -270° (X =  0.000m, Y = +0.280m, Z = 0.28m)
-  * End (F24):   theta = -315° (X = +0.198m, Y = +0.198m, Z = 0.28m)
-- Strict mathematical tangent blade vector: u_blade = (sin(th), -cos(th), 0.0)
-- Outward radial cutting edge: u_edge = (-cos(th), -sin(th), 0.0)
+Authoritative Left-Hand 180° Pure Flat Circular Sword Strike:
+- Left hand (Hand.L & Socket_Hand_L) starts on the LEFT side of the body (X > 0).
+- Sweep angle theta goes from -135° to -315°:
+  * Start (F6):    theta = -135° -> X = +0.198m, Y = -0.198m, Z = 0.28m (Behind Left Shoulder)
+  * Point 1 (F10): theta = -180° -> X = +0.280m, Y =  0.000m, Z = 0.28m (Left Flank)
+  * Point 2 (F14): theta = -225° -> X = +0.198m, Y = +0.198m, Z = 0.28m (Front-Left Diagonal)
+  * Point 3 (F18): theta = -270° -> X =  0.000m, Y = +0.280m, Z = 0.28m (Front Center Climax)
+  * Finish (F22):  theta = -315° -> X = -0.198m, Y = +0.198m, Z = 0.28m (Front-Right Follow-through)
+- Strict mathematical tangent blade: u_blade = (-sin(th), -cos(th), 0.0)
+- Outward radial cutting edge: u_edge = (-cos(th), sin(th), 0.0)
 - Arm segments (Shoulder.L, UpperArm.L, Forearm.L) align along the kinetic line of action.
-- Action & NLA Track: 'Attack_Round'
-- Renders multi-view contact sheet: 'attack_round_filmstrip.png'
+- Action & Primary NLA Track: 'Attack_Round'
 """
 
 import bpy
@@ -21,9 +20,6 @@ import math
 import base64
 import subprocess
 from mathutils import Vector, Euler, Matrix
-
-def deg(v):
-    return math.radians(v)
 
 def set_bone_world_matrix(pb, target_mat):
     """Accurately computes and sets local location & rotation for pb to achieve target_mat in Armature space."""
@@ -39,10 +35,10 @@ def set_bone_world_matrix(pb, target_mat):
     pb.location = L_b.to_translation()
     pb.rotation_euler = L_b.to_euler('XYZ')
 
-def solve_socket_hand_matrix(hand_pos, theta_rad):
-    """Computes target world matrix for Socket_Hand_L."""
-    y_blade = Vector((math.sin(theta_rad), -math.cos(theta_rad), 0.0)).normalized()
-    z_edge = Vector((-math.cos(theta_rad), -math.sin(theta_rad), 0.0)).normalized()
+def solve_socket_hand_matrix_left(hand_pos, theta_rad):
+    """Computes target world matrix for Socket_Hand_L on Left-Hand sweep."""
+    y_blade = Vector((-math.sin(theta_rad), -math.cos(theta_rad), 0.0)).normalized()
+    z_edge = Vector((-math.cos(theta_rad), math.sin(theta_rad), 0.0)).normalized()
     x_cross = y_blade.cross(z_edge).normalized()
 
     socket_mat = Matrix((
@@ -122,7 +118,7 @@ def create_temp_sword():
         bsdf_g.inputs['Roughness'].default_value = 0.25
     obj.data.materials.append(mat_gold)
 
-    # Blade along local +Y of bone
+    # Blade voxels along local +Y of bone
     bmesh.ops.create_cube(bm, size=1.0)
     for v in bm.verts:
         v.co.x *= 0.035
@@ -193,30 +189,31 @@ def build_attack_round():
     bpy.context.scene.frame_end = 36
 
     # -------------------------------------------------------------------------
-    # CIRCULAR TRAJECTORY FROM -135° TO -315°
+    # TRUE LEFT-HAND CIRCULAR TRAJECTORY FROM -135° TO -315°
     # Center = (0, 0, 0.28m), R = 0.28m, Z_const = 0.28m
+    # X = -R * cos(th) (Positive X on left side), Y = R * sin(th)
     # -------------------------------------------------------------------------
     R = 0.28
     Z_const = 0.28
     C = Vector((0.0, 0.0, Z_const))
 
-    def get_circle_pos(deg_val):
+    def get_circle_pos_left(deg_val):
         th = math.radians(deg_val)
-        return C + Vector((R * math.cos(th), R * math.sin(th), 0.0)), th
+        return C + Vector((-R * math.cos(th), R * math.sin(th), 0.0)), th
 
     # Keyframe Specs across the rotation
     keyframe_specs = [
-        # Frame 1: Hold Start Angle (-135°)
+        # Frame 1: Hold Start Angle (-135°) behind Left Shoulder
         (1, {'deg': -135}),
         # Frame 6: Ready to Sweep (-135°)
         (6, {'deg': -135}),
-        # Frame 10: Sweep (-180°)
+        # Frame 10: Sweep along Left Flank (-180°)
         (10, {'deg': -180}),
-        # Frame 14: Sweep (-225°)
+        # Frame 14: Sweep Front-Left Diagonal (-225°)
         (14, {'deg': -225}),
-        # Frame 18: Sweep (-270°)
+        # Frame 18: Front Center Climax (-270°)
         (18, {'deg': -270}),
-        # Frame 22: Reached Target Angle (-315°)
+        # Frame 22: Reached Front-Right Finish (-315°)
         (22, {'deg': -315}),
         # Frame 26: Hold Target Angle (-315°)
         (26, {'deg': -315}),
@@ -249,7 +246,7 @@ def build_attack_round():
         sh_pos = pb_shoulder_l.matrix.to_translation()
 
         # Compute trajectory point & angle
-        h_pos, th = get_circle_pos(spec['deg'])
+        h_pos, th = get_circle_pos_left(spec['deg'])
 
         # Align UpperArm.L and Forearm.L along line of action
         upper_mat, fore_mat = solve_arm_segments_mat(sh_pos, h_pos)
@@ -264,7 +261,7 @@ def build_attack_round():
         bpy.context.view_layer.update()
 
         # Compute exact Hand.L & Socket_Hand_L world matrix
-        sock_mat = solve_socket_hand_matrix(h_pos, th)
+        sock_mat = solve_socket_hand_matrix_left(h_pos, th)
         hand_mat = solve_hand_matrix_from_socket(pb_hand_l, pb_socket_l, sock_mat)
 
         set_bone_world_matrix(pb_hand_l, hand_mat)
@@ -284,7 +281,7 @@ def build_attack_round():
                 kp.interpolation = 'BEZIER'
                 kp.easing = 'AUTO'
 
-    print("Keyframed Attack_Round: Left Hand pure rotation from -135° to -315°.")
+    print("Keyframed Attack_Round: True Left Hand rotation from -135° to -315°.")
 
     # --- TEMPORARY AUDIT SWORD ATTACHMENT VIA ARMATURE SKINNING ---
     audit_sword = create_temp_sword()
@@ -331,8 +328,8 @@ def build_attack_round():
 
     views = [
         ('top', Vector((0.0, 0.0, 1.5)), Euler((0.0, 0.0, 0.0), 'XYZ'), 0.95),
-        ('front_34', Vector((-0.9, 1.2, 0.7)), Euler((math.radians(65), 0.0, math.radians(-145)), 'XYZ'), 0.70),
-        ('side', Vector((-1.4, 0.0, 0.32)), Euler((math.radians(90), 0.0, math.radians(-90)), 'XYZ'), 0.70)
+        ('front_34', Vector((0.9, 1.2, 0.7)), Euler((math.radians(65), 0.0, math.radians(-35)), 'XYZ'), 0.70),
+        ('side', Vector((1.4, 0.0, 0.32)), Euler((math.radians(90), 0.0, math.radians(90)), 'XYZ'), 0.70)
     ]
 
     rendered_images = []
@@ -380,7 +377,7 @@ for r in range(views):
             except Exception:
                 pass
 
-row_labels = ["TOP-DOWN (Hand.L: -135° to -315°)", "FRONT 3/4 PERSPECTIVE", "SIDE PROFILE (Strict Z=0.28m)"]
+row_labels = ["TOP-DOWN (True Hand.L: -135° to -315°)", "FRONT 3/4 PERSPECTIVE", "SIDE PROFILE (Strict Z=0.28m)"]
 for r, label in enumerate(row_labels):
     draw.text((12, r * h + 10), label, fill=(255, 215, 0, 255))
 
@@ -407,7 +404,7 @@ print(f"Saved Contact Sheet to: {{filmstrip_final_path}}")
     bpy.ops.wm.save_mainfile(filepath=blend_path)
     print(f"Saved updated attack_round animation to: {blend_path}")
 
-    # --- EXPORT GLTF 2.0 (swordsman.glb) WITH ALL ACTIONS AS NLA TRACKS ---
+    # --- EXPORT GLTF 2.0 (swordsman.glb) WITH Attack_Round AS PRIMARY NLA TRACK ---
     print("\n--- EXPORTING GLTF 2.0 WITH ALL ANIMATIONS (swordsman.glb) ---")
     if not arm.animation_data:
         arm.animation_data_create()
