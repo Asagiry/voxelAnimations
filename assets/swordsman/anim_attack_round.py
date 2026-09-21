@@ -50,11 +50,11 @@ def solve_socket_hand_matrix_left(hand_pos, theta_rad):
     """
     Computes target world matrix for Socket_Hand_L on Left-Hand sweep.
     - y_blade: points along weapon shaft / blade length (local +Y)
-    - z_edge: cutting edge (local +Z). Flipped 180° around blade axis so the sharp edge faces into the cut.
+    - z_edge: cutting edge (local +Z). Rotated 180° so sharp cutting edge strictly faces forward into the strike path.
     """
     y_blade = Vector((-math.sin(theta_rad), -math.cos(theta_rad), 0.0)).normalized()
-    # Flipped 180° around y_blade: (cos(th), -sin(th), 0)
-    z_edge = Vector((math.cos(theta_rad), -math.sin(theta_rad), 0.0)).normalized()
+    # Rotated 180° around y_blade: (-cos(th), sin(th), 0)
+    z_edge = Vector((-math.cos(theta_rad), math.sin(theta_rad), 0.0)).normalized()
     x_cross = y_blade.cross(z_edge).normalized()
 
     socket_mat = Matrix((
@@ -266,9 +266,9 @@ def build_attack_round():
     # TRAJECTORY CONTRACT:
     # Radius R = 0.35m, Center = (0.0, 0.03, 0.28m)
     # -------------------------------------------------------------------------
-    R = 0.35
+    R = 0.36
     R_ready = 0.22
-    R_strike = 0.35
+    R_strike = 0.36
     Z_ready = 0.26
     Z_strike = 0.28
     C_xy = Vector((0.0, 0.03))
@@ -281,19 +281,19 @@ def build_attack_round():
 
         # 1. Trajectory angle, radius, height, and phase factors
         if frame <= 18:
-            # Phase 1: Slow deliberate wind-up from ready stance to behind the back (F1-F18)
+            # Phase 1: Slow deliberate wind-up from ready stance to deep behind the back (F1-F18)
             t_wind = (frame - 1) / 17.0
             # Smoothstep easing for heavy, deliberate coil
             e_wind = t_wind * t_wind * (3.0 - 2.0 * t_wind)
-            deg_val = -210.0 + (-135.0 - (-210.0)) * e_wind
+            deg_val = -210.0 + (-95.0 - (-210.0)) * e_wind
             r_val = R_ready + (R_strike - R_ready) * e_wind
             z_val = Z_ready + (Z_strike - Z_ready) * e_wind
             bf = -e_wind
         elif frame <= 26:
-            # Phase 2: Fast explosive 180° circular strike (F18-F26, 8 frames)
+            # Phase 2: Fast explosive 220° circular strike from deep behind the back (F18-F26, 8 frames)
             t_strike = (frame - 18) / 8.0
             e_strike = t_strike ** 1.8
-            deg_val = -135.0 + (-315.0 - (-135.0)) * e_strike
+            deg_val = -95.0 + (-315.0 - (-95.0)) * e_strike
             r_val = R_strike
             z_val = Z_strike
             bf = -1.0 + 2.0 * e_strike
@@ -316,14 +316,14 @@ def build_attack_round():
 
         # 2. Rock-Solid Martial Stance: Synchronized Torso Kinetic Chain
         # Wind-up coil (bf < 0):
-        #   - Torso rotates clockwise (negative Yaw) pulling Left Shoulder back with the arm!
-        #   - Hips 0° to -18°, Chest 0° to -30°
+        #   - Torso rotates clockwise (negative Yaw) pulling Left Shoulder back deep behind the back!
+        #   - Hips 0° to -22°, Chest 0° to -36°
         # Strike impact (bf >= 0):
         #   - Torso whips counter-clockwise (positive Yaw) driving Left Shoulder forward into the strike!
         #   - Hips 0° to +24°, Chest 0° to +38°, martial forward lean up to +10°
         if bf < 0:
-            hips_yaw = math.radians(bf * 18.0)
-            chest_total_yaw = math.radians(bf * 30.0)
+            hips_yaw = math.radians(bf * 22.0)
+            chest_total_yaw = math.radians(bf * 36.0)
             chest_lean = 0.0
         else:
             hips_yaw = math.radians(bf * 24.0)
@@ -358,8 +358,8 @@ def build_attack_round():
 
         # 3. Shoulder.L: Outward offset from torso + synchronized forward drive
         sh_outward = 0.030
-        sh_forward = (bf * 0.020) if bf < 0 else (bf * 0.035)
-        sh_rot_z = math.radians((bf * 20.0) if bf < 0 else (bf * 30.0))
+        sh_forward = (bf * 0.025) if bf < 0 else (bf * 0.035)
+        sh_rot_z = math.radians((bf * 24.0) if bf < 0 else (bf * 30.0))
         pb_shoulder_l.rotation_mode = 'XYZ'
         pb_shoulder_l.location = Vector((sh_forward, sh_outward, 0.0))
         pb_shoulder_l.rotation_euler = Euler((0.0, 0.0, sh_rot_z), 'XYZ')
