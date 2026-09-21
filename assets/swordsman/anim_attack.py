@@ -1,13 +1,16 @@
 """
 assets/swordsman/anim_attack.py
-Authoritative 5-Phase Rayman-Style Floating Limbs Circular Sword Strike:
-- Circular trajectory centered on character body (C = [0, 0, 0.28m], R = 0.28m).
-- Windup: Hand detaches backward and upward at 45° elevation to theta = 5*pi/4 (225° behind right shoulder).
-- Strike: Explosive circular sweep 5*pi/4 (225°) -> pi (180°) -> pi/2 (90°, front impact) -> 0 (2*pi, left flank extension).
-- Sword blade strictly oriented along the arm trajectory / tangent velocity vector (cutting edge leads the arc).
-- Whole-body torque (Hips/Chest whip from -35° to +42°), off-hand martial counterbalance, head target lock.
+Authoritative 5-Phase Rayman-Style Floating Limbs 180° Circular Sword Strike:
+- Direct top-down 180° circular arc from sketch:
+  * Start: Behind right shoulder (X = -0.16m, Y = -0.18m, Z = 0.38m)
+  * Flank: Right side (X = -0.25m, Y = 0.00m, Z = 0.30m)
+  * Front: In front of chest (X = 0.00m, Y = +0.26m, Z = 0.24m)
+  * End: Front-left flank (X = +0.22m, Y = +0.16m, Z = 0.22m)
+- Mathematical hand matrix solver aligning sword blade strictly along trajectory tangent.
+- Socket_Hand_R remains rigidly centered inside Hand.R fist.
+- Whole-body torque (Hips/Chest whip from -35° to +48°), offhand counter-balance, head target lock.
 - Automated ground solver pass (Z >= 0.0 invariant).
-- High-visibility studio lighting (Key, Fill, Rim) and dual-angle contact sheet.
+- 3-Row Contact Sheet: Top-Down (Вид сверху), Front 3/4, Side Profile.
 - Modern glTF 2.0 export with baked animations and Base64 output.
 """
 
@@ -20,6 +23,34 @@ from mathutils import Vector, Euler, Matrix
 
 def deg(v):
     return math.radians(v)
+
+def solve_hand_matrix(pb_hand, pb_socket, hand_world_pos, blade_dir, edge_dir):
+    """
+    Computes exact world matrix for Hand.R so that:
+    - Socket_Hand_R (and held weapon) sits at hand_world_pos
+    - Weapon blade points along blade_dir
+    - Weapon cutting edge faces edge_dir
+    """
+    y_blade = blade_dir.normalized()
+    z_edge = edge_dir.normalized()
+    z_edge = (z_edge - z_edge.dot(y_blade) * y_blade).normalized()
+    x_cross = y_blade.cross(z_edge).normalized()
+    z_edge = x_cross.cross(y_blade).normalized()
+
+    # Socket world matrix
+    socket_mat = Matrix((
+        (x_cross.x, y_blade.x, z_edge.x),
+        (x_cross.y, y_blade.y, z_edge.y),
+        (x_cross.z, y_blade.z, z_edge.z)
+    )).to_4x4()
+    socket_mat.translation = hand_world_pos
+
+    # Hand matrix = Socket matrix @ rest_rel_inverse
+    rest_hand = pb_hand.bone.matrix_local.copy()
+    rest_socket = pb_socket.bone.matrix_local.copy()
+    rest_rel = rest_hand.inverted() @ rest_socket
+    hand_mat = socket_mat @ rest_rel.inverted()
+    return hand_mat
 
 def create_temp_sword():
     """Creates a stylized voxel sword mesh in scene for visual audit in renders."""
@@ -35,19 +66,19 @@ def create_temp_sword():
     mat_blade.use_nodes = True
     bsdf = mat_blade.node_tree.nodes.get("Principled BSDF")
     if bsdf:
-        bsdf.inputs['Base Color'].default_value = (0.90, 0.94, 1.0, 1.0)
-        bsdf.inputs['Metallic'].default_value = 0.85
+        bsdf.inputs['Base Color'].default_value = (0.90, 0.95, 1.0, 1.0)
+        bsdf.inputs['Metallic'].default_value = 0.9
         bsdf.inputs['Roughness'].default_value = 0.15
         if 'Emission Color' in bsdf.inputs:
-            bsdf.inputs['Emission Color'].default_value = (0.2, 0.5, 0.9, 1.0)
-            bsdf.inputs['Emission Strength'].default_value = 0.4
+            bsdf.inputs['Emission Color'].default_value = (0.3, 0.6, 1.0, 1.0)
+            bsdf.inputs['Emission Strength'].default_value = 0.5
     obj.data.materials.append(mat_blade)
     
     mat_gold = bpy.data.materials.new(name="M_Audit_Gold")
     mat_gold.use_nodes = True
     bsdf_g = mat_gold.node_tree.nodes.get("Principled BSDF")
     if bsdf_g:
-        bsdf_g.inputs['Base Color'].default_value = (1.0, 0.80, 0.18, 1.0)
+        bsdf_g.inputs['Base Color'].default_value = (1.0, 0.80, 0.15, 1.0)
         bsdf_g.inputs['Metallic'].default_value = 0.9
         bsdf_g.inputs['Roughness'].default_value = 0.25
     obj.data.materials.append(mat_gold)
@@ -58,7 +89,7 @@ def create_temp_sword():
         v.co.x *= 0.035
         v.co.y *= 0.015
         v.co.z *= 0.22
-        v.co.z += 0.25  # from z=0.03 to z=0.47
+        v.co.z += 0.25
     for f in bm.faces:
         f.material_index = 0
 
@@ -114,15 +145,27 @@ def build_attack():
         pb.location = Vector((0, 0, 0))
         pb.rotation_euler = Euler((0, 0, 0), 'XYZ')
 
+    pb_hand_r = pbones['Hand.R']
+    pb_socket_r = pbones['Socket_Hand_R']
+    pb_socket_r.location = Vector((0, 0, 0))
+    pb_socket_r.rotation_euler = Euler((0, 0, 0), 'XYZ')
+
     bpy.context.scene.frame_start = 1
     bpy.context.scene.frame_end = 48
 
     # -------------------------------------------------------------------------
-    # 5-PHASE COMBAT STRIKE KEYFRAMES (Frames 1 - 48)
+    # 180° TOP-DOWN CIRCULAR ARC TRAJECTORY SPECIFICATION
     # -------------------------------------------------------------------------
-    keyframe_data = [
-        # F1: Ready Combat Guard Stance
+    # Trajectory points: (frame, hand_pos, blade_dir, edge_dir, arm_segments, body_pose)
+    keyframe_specs = [
+        # Frame 1: Ready Guard
         (1, {
+            'hand_pos': Vector((-0.09, 0.08, 0.16)),
+            'blade_dir': Vector((0.15, 0.45, 0.88)),
+            'edge_dir': Vector((0.85, 0.50, -0.15)),
+            'UpperArm.R': {'rot': (deg(15), deg(0), deg(10)), 'loc': (0, 0.01, 0)},
+            'Forearm.R': {'rot': (deg(0), deg(0), deg(-20)), 'loc': (0, 0.01, 0)},
+            'Shoulder.R': {'rot': (deg(5), deg(0), deg(8)), 'loc': (-0.01, 0.02, 0.0)},
             'Hips': {'rot': (deg(-4), deg(-6), deg(0)), 'loc': (0, 0, 0)},
             'Chest': {'rot': (deg(6), deg(-6), deg(0)), 'loc': (0, 0, 0)},
             'Head': {'rot': (deg(-2), deg(6), deg(0)), 'loc': (0, 0, 0)},
@@ -132,19 +175,20 @@ def build_attack():
             'UpperLeg.R': {'rot': (deg(-10), deg(0), deg(-4))},
             'LowerLeg.R': {'rot': (deg(-14), deg(0), deg(0))},
             'Foot.R': {'rot': (deg(8), deg(0), deg(0))},
-            'Shoulder.R': {'rot': (deg(5), deg(0), deg(8)), 'loc': (-0.01, 0.02, 0.0)},
-            'UpperArm.R': {'rot': (deg(20), deg(0), deg(10)), 'loc': (0, 0.02, 0)},
-            'Forearm.R': {'rot': (deg(0), deg(0), deg(-20)), 'loc': (0, 0.02, 0)},
-            'Hand.R': {'rot': (deg(15), deg(0), deg(20)), 'loc': (-0.02, 0.06, 0.02)},
-            'Socket_Hand_R': {'rot': (deg(10), deg(10), deg(0)), 'loc': (0, 0, 0)},
             'Shoulder.L': {'rot': (deg(-5), deg(0), deg(-8)), 'loc': (0.01, 0.02, 0.0)},
             'UpperArm.L': {'rot': (deg(15), deg(0), deg(-15)), 'loc': (0, 0.02, 0)},
             'Forearm.L': {'rot': (deg(0), deg(0), deg(-35)), 'loc': (0, 0, 0)},
             'Hand.L': {'rot': (deg(10), deg(0), deg(0)), 'loc': (0.02, 0.04, 0.0)},
         }),
 
-        # F8: Coiling & Detaching Windup Initiation (theta ~ 205°)
+        # Frame 8: Coiling Windup (theta ~ 40° along back arc)
         (8, {
+            'hand_pos': Vector((-0.13, -0.08, 0.28)),
+            'blade_dir': Vector((-0.10, -0.40, 0.91)),
+            'edge_dir': Vector((0.70, -0.65, -0.28)),
+            'UpperArm.R': {'rot': (deg(45), deg(10), deg(20)), 'loc': (0, -0.01, 0.02)},
+            'Forearm.R': {'rot': (deg(0), deg(0), deg(-15)), 'loc': (0, -0.01, 0.02)},
+            'Shoulder.R': {'rot': (deg(10), deg(-8), deg(15)), 'loc': (-0.02, -0.01, 0.02)},
             'Hips': {'rot': (deg(-8), deg(-20), deg(4)), 'loc': (0, 0, 0)},
             'Chest': {'rot': (deg(10), deg(-28), deg(6)), 'loc': (0, 0, 0)},
             'Head': {'rot': (deg(-4), deg(24), deg(-4)), 'loc': (0, 0, 0)},
@@ -154,19 +198,20 @@ def build_attack():
             'UpperLeg.R': {'rot': (deg(-16), deg(0), deg(-6))},
             'LowerLeg.R': {'rot': (deg(-22), deg(0), deg(0))},
             'Foot.R': {'rot': (deg(10), deg(0), deg(0))},
-            'Shoulder.R': {'rot': (deg(12), deg(-10), deg(18)), 'loc': (-0.02, -0.02, 0.03)},
-            'UpperArm.R': {'rot': (deg(55), deg(10), deg(20)), 'loc': (0, -0.02, 0.04)},
-            'Forearm.R': {'rot': (deg(0), deg(0), deg(-20)), 'loc': (0, -0.02, 0.04)},
-            'Hand.R': {'rot': (deg(-20), deg(15), deg(35)), 'loc': (-0.06, -0.08, 0.10)},
-            'Socket_Hand_R': {'rot': (deg(20), deg(20), deg(-15)), 'loc': (0, 0, 0)},
             'Shoulder.L': {'rot': (deg(-5), deg(10), deg(-12)), 'loc': (0.02, 0.03, 0.0)},
             'UpperArm.L': {'rot': (deg(28), deg(8), deg(-25)), 'loc': (0, 0.02, 0)},
             'Forearm.L': {'rot': (deg(0), deg(0), deg(-55)), 'loc': (0, 0.01, 0)},
             'Hand.L': {'rot': (deg(15), deg(0), deg(0)), 'loc': (0.03, 0.07, 0.0)},
         }),
 
-        # F14: Deep Apex Windup at 5*pi/4 (225° behind right shoulder, 45° elevation)
+        # Frame 14: START OF 180° ARC (Apex Windup, "рука" at bottom-left of sketch)
         (14, {
+            'hand_pos': Vector((-0.16, -0.18, 0.38)),
+            'blade_dir': Vector((-0.20, -0.60, 0.77)),
+            'edge_dir': Vector((0.60, -0.60, -0.40)),
+            'UpperArm.R': {'rot': (deg(80), deg(15), deg(28)), 'loc': (0, -0.03, 0.05)},
+            'Forearm.R': {'rot': (deg(0), deg(0), deg(-10)), 'loc': (0, -0.03, 0.04)},
+            'Shoulder.R': {'rot': (deg(18), deg(-15), deg(22)), 'loc': (-0.03, -0.03, 0.04)},
             'Hips': {'rot': (deg(-12), deg(-35), deg(6)), 'loc': (0, 0, 0)},
             'Chest': {'rot': (deg(15), deg(-46), deg(8)), 'loc': (0, 0, 0)},
             'Head': {'rot': (deg(-8), deg(44), deg(-6)), 'loc': (0, 0, 0)},
@@ -176,20 +221,20 @@ def build_attack():
             'UpperLeg.R': {'rot': (deg(-22), deg(0), deg(-8))},
             'LowerLeg.R': {'rot': (deg(-30), deg(0), deg(0))},
             'Foot.R': {'rot': (deg(12), deg(0), deg(0))},
-            'Shoulder.R': {'rot': (deg(20), deg(-15), deg(25)), 'loc': (-0.03, -0.04, 0.05)},
-            'UpperArm.R': {'rot': (deg(85), deg(15), deg(30)), 'loc': (0, -0.05, 0.07)},
-            'Forearm.R': {'rot': (deg(0), deg(0), deg(-10)), 'loc': (0, -0.04, 0.06)},
-            # Hand.R at theta = 5*pi/4, sword pointing back-up along arm
-            'Hand.R': {'rot': (deg(-45), deg(20), deg(50)), 'loc': (-0.10, -0.16, 0.16)},
-            'Socket_Hand_R': {'rot': (deg(35), deg(15), deg(-30)), 'loc': (0, 0, 0)},
             'Shoulder.L': {'rot': (deg(-8), deg(15), deg(-15)), 'loc': (0.03, 0.04, 0.0)},
             'UpperArm.L': {'rot': (deg(35), deg(15), deg(-35)), 'loc': (0, 0.03, 0)},
             'Forearm.L': {'rot': (deg(0), deg(0), deg(-65)), 'loc': (0, 0.02, 0)},
             'Hand.L': {'rot': (deg(18), deg(0), deg(0)), 'loc': (0.03, 0.12, 0.01)},
         }),
 
-        # F16: Explosive Acceleration -> theta = 180° (pi, right flank cleave)
+        # Frame 16: MID-ARC 1 (Right Flank Sweep, 45° around circle)
         (16, {
+            'hand_pos': Vector((-0.25, 0.00, 0.30)),
+            'blade_dir': Vector((-0.10, 0.85, 0.51)),
+            'edge_dir': Vector((0.95, 0.10, -0.30)),
+            'UpperArm.R': {'rot': (deg(50), deg(10), deg(18)), 'loc': (0, 0.0, 0.02)},
+            'Forearm.R': {'rot': (deg(0), deg(0), deg(-15)), 'loc': (0, 0.01, 0.01)},
+            'Shoulder.R': {'rot': (deg(8), deg(5), deg(16)), 'loc': (-0.02, 0.0, 0.01)},
             'Hips': {'rot': (deg(-10), deg(-12), deg(4)), 'loc': (0, 0, 0)},
             'Chest': {'rot': (deg(4), deg(-12), deg(2)), 'loc': (0, 0, 0)},
             'Head': {'rot': (deg(-4), deg(12), deg(-2)), 'loc': (0, 0, 0)},
@@ -199,20 +244,20 @@ def build_attack():
             'UpperLeg.R': {'rot': (deg(-16), deg(0), deg(-6))},
             'LowerLeg.R': {'rot': (deg(-24), deg(0), deg(0))},
             'Foot.R': {'rot': (deg(10), deg(0), deg(0))},
-            'Shoulder.R': {'rot': (deg(10), deg(5), deg(20)), 'loc': (-0.02, 0.0, 0.02)},
-            'UpperArm.R': {'rot': (deg(60), deg(10), deg(20)), 'loc': (0, 0.01, 0.03)},
-            'Forearm.R': {'rot': (deg(0), deg(0), deg(-15)), 'loc': (0, 0.02, 0.02)},
-            # Hand at right flank, blade slicing forward along trajectory
-            'Hand.R': {'rot': (deg(-10), deg(25), deg(75)), 'loc': (-0.14, 0.0, 0.10)},
-            'Socket_Hand_R': {'rot': (deg(20), deg(20), deg(-20)), 'loc': (0, 0, 0)},
             'Shoulder.L': {'rot': (deg(2), deg(5), deg(-10)), 'loc': (0.02, 0.02, 0.0)},
             'UpperArm.L': {'rot': (deg(15), deg(0), deg(-25)), 'loc': (0, 0.0, 0)},
             'Forearm.L': {'rot': (deg(0), deg(0), deg(-45)), 'loc': (0, -0.02, 0)},
             'Hand.L': {'rot': (deg(10), deg(0), deg(-15)), 'loc': (0.04, 0.04, -0.02)},
         }),
 
-        # F18: Climax Transition -> theta = 135° (3*pi/4, front-right)
+        # Frame 18: MID-ARC 2 (Front-Right Entrance, 90° around circle)
         (18, {
+            'hand_pos': Vector((-0.14, 0.20, 0.26)),
+            'blade_dir': Vector((0.55, 0.70, 0.45)),
+            'edge_dir': Vector((0.75, -0.50, -0.42)),
+            'UpperArm.R': {'rot': (deg(30), deg(8), deg(12)), 'loc': (0, 0.02, 0.01)},
+            'Forearm.R': {'rot': (deg(0), deg(0), deg(-18)), 'loc': (0, 0.03, 0.0)},
+            'Shoulder.R': {'rot': (deg(4), deg(12), deg(12)), 'loc': (-0.01, 0.02, 0.0)},
             'Hips': {'rot': (deg(-4), deg(16), deg(0)), 'loc': (0, 0, 0)},
             'Chest': {'rot': (deg(10), deg(22), deg(-2)), 'loc': (0, 0, 0)},
             'Head': {'rot': (deg(0), deg(-20), deg(0)), 'loc': (0, 0, 0)},
@@ -222,20 +267,20 @@ def build_attack():
             'UpperLeg.R': {'rot': (deg(-10), deg(0), deg(-4))},
             'LowerLeg.R': {'rot': (deg(-16), deg(0), deg(0))},
             'Foot.R': {'rot': (deg(8), deg(0), deg(0))},
-            'Shoulder.R': {'rot': (deg(5), deg(15), deg(15)), 'loc': (-0.01, 0.03, 0.01)},
-            'UpperArm.R': {'rot': (deg(35), deg(10), deg(15)), 'loc': (0, 0.04, 0.01)},
-            'Forearm.R': {'rot': (deg(0), deg(0), deg(-20)), 'loc': (0, 0.05, 0.0)},
-            # Hand leading forward-left, blade slashing diagonally across
-            'Hand.R': {'rot': (deg(15), deg(15), deg(105)), 'loc': (-0.06, 0.16, 0.04)},
-            'Socket_Hand_R': {'rot': (deg(0), deg(25), deg(-10)), 'loc': (0, 0, 0)},
             'Shoulder.L': {'rot': (deg(8), deg(-10), deg(-8)), 'loc': (0.01, -0.02, 0.0)},
             'UpperArm.L': {'rot': (deg(-10), deg(-15), deg(-20)), 'loc': (0, -0.04, 0)},
             'Forearm.L': {'rot': (deg(0), deg(0), deg(-35)), 'loc': (0, -0.05, 0)},
             'Hand.L': {'rot': (deg(5), deg(0), deg(-30)), 'loc': (0.06, -0.06, -0.04)},
         }),
 
-        # F20: PEAK IMPACT CLIMAX -> theta = 90° (pi/2, DIRECT FRONT HORIZONTAL CLEAVE)
+        # Frame 20: PEAK IMPACT CLIMAX (Direct Front Horizontal Cleave, 135° around circle)
         (20, {
+            'hand_pos': Vector((0.00, 0.26, 0.24)),
+            'blade_dir': Vector((0.88, 0.35, 0.31)),
+            'edge_dir': Vector((0.35, -0.88, -0.32)),
+            'UpperArm.R': {'rot': (deg(15), deg(5), deg(8)), 'loc': (0.01, 0.04, 0.0)},
+            'Forearm.R': {'rot': (deg(0), deg(0), deg(-20)), 'loc': (0.02, 0.05, 0.0)},
+            'Shoulder.R': {'rot': (deg(0), deg(20), deg(8)), 'loc': (0.0, 0.04, 0.0)},
             'Hips': {'rot': (deg(0), deg(36), deg(-4)), 'loc': (0, 0, 0)},
             'Chest': {'rot': (deg(18), deg(44), deg(-6)), 'loc': (0, 0, 0)},
             'Head': {'rot': (deg(2), deg(-40), deg(2)), 'loc': (0, 0, 0)},
@@ -245,20 +290,20 @@ def build_attack():
             'UpperLeg.R': {'rot': (deg(-6), deg(0), deg(-2))},
             'LowerLeg.R': {'rot': (deg(-10), deg(0), deg(0))},
             'Foot.R': {'rot': (deg(6), deg(0), deg(0))},
-            'Shoulder.R': {'rot': (deg(0), deg(25), deg(10)), 'loc': (0.0, 0.05, 0.0)},
-            'UpperArm.R': {'rot': (deg(15), deg(10), deg(10)), 'loc': (0.02, 0.06, 0.0)},
-            'Forearm.R': {'rot': (deg(0), deg(0), deg(-25)), 'loc': (0.03, 0.07, -0.01)},
-            # Hand extended straight in front of chest, blade cleaving horizontally across (+X)
-            'Hand.R': {'rot': (deg(35), deg(0), deg(125)), 'loc': (0.04, 0.22, -0.02)},
-            'Socket_Hand_R': {'rot': (deg(-15), deg(25), deg(0)), 'loc': (0, 0, 0)},
             'Shoulder.L': {'rot': (deg(12), deg(-20), deg(-6)), 'loc': (0.0, -0.04, 0.0)},
             'UpperArm.L': {'rot': (deg(-25), deg(-25), deg(-15)), 'loc': (0, -0.08, 0)},
             'Forearm.L': {'rot': (deg(0), deg(0), deg(-25)), 'loc': (0, -0.08, 0)},
             'Hand.L': {'rot': (deg(0), deg(0), deg(-45)), 'loc': (0.08, -0.12, -0.06)},
         }),
 
-        # F22: Follow-Through & Overshoot -> theta = 0° (2*pi, LEFT FLANK COMPLETION)
+        # Frame 22: END OF 180° ARC (Destination circle at top-right of sketch)
         (22, {
+            'hand_pos': Vector((0.22, 0.16, 0.22)),
+            'blade_dir': Vector((0.75, -0.45, 0.48)),
+            'edge_dir': Vector((-0.45, -0.75, -0.48)),
+            'UpperArm.R': {'rot': (deg(5), deg(0), deg(5)), 'loc': (0.02, 0.04, 0.0)},
+            'Forearm.R': {'rot': (deg(0), deg(0), deg(-25)), 'loc': (0.03, 0.04, 0.0)},
+            'Shoulder.R': {'rot': (deg(-2), deg(25), deg(6)), 'loc': (0.01, 0.03, 0.0)},
             'Hips': {'rot': (deg(2), deg(42), deg(-4)), 'loc': (0, 0, 0)},
             'Chest': {'rot': (deg(16), deg(48), deg(-6)), 'loc': (0, 0, 0)},
             'Head': {'rot': (deg(2), deg(-42), deg(2)), 'loc': (0, 0, 0)},
@@ -268,20 +313,20 @@ def build_attack():
             'UpperLeg.R': {'rot': (deg(-4), deg(0), deg(-2))},
             'LowerLeg.R': {'rot': (deg(-8), deg(0), deg(0))},
             'Foot.R': {'rot': (deg(6), deg(0), deg(0))},
-            'Shoulder.R': {'rot': (deg(-2), deg(28), deg(8)), 'loc': (0.01, 0.04, 0.0)},
-            'UpperArm.R': {'rot': (deg(5), deg(5), deg(5)), 'loc': (0.03, 0.05, 0.0)},
-            'Forearm.R': {'rot': (deg(0), deg(0), deg(-30)), 'loc': (0.04, 0.05, -0.01)},
-            # Hand swept far to the left flank, blade pointed left-back
-            'Hand.R': {'rot': (deg(45), deg(-15), deg(145)), 'loc': (0.12, 0.16, -0.04)},
-            'Socket_Hand_R': {'rot': (deg(-25), deg(20), deg(10)), 'loc': (0, 0, 0)},
             'Shoulder.L': {'rot': (deg(15), deg(-25), deg(-4)), 'loc': (0.0, -0.05, 0.0)},
             'UpperArm.L': {'rot': (deg(-30), deg(-30), deg(-10)), 'loc': (0, -0.10, 0)},
             'Forearm.L': {'rot': (deg(0), deg(0), deg(-20)), 'loc': (0, -0.10, 0)},
             'Hand.L': {'rot': (deg(0), deg(0), deg(-50)), 'loc': (0.09, -0.14, -0.06)},
         }),
 
-        # F26: Hit-Stop Tremor & Deceleration Hold
+        # Frame 26: Hit-Stop Tremor & Deceleration Snap
         (26, {
+            'hand_pos': Vector((0.21, 0.15, 0.22)),
+            'blade_dir': Vector((0.72, -0.48, 0.49)),
+            'edge_dir': Vector((-0.48, -0.72, -0.49)),
+            'UpperArm.R': {'rot': (deg(6), deg(0), deg(5)), 'loc': (0.02, 0.04, 0.0)},
+            'Forearm.R': {'rot': (deg(0), deg(0), deg(-25)), 'loc': (0.03, 0.04, 0.0)},
+            'Shoulder.R': {'rot': (deg(-2), deg(24), deg(6)), 'loc': (0.01, 0.03, 0.0)},
             'Hips': {'rot': (deg(2), deg(40), deg(-4)), 'loc': (0, 0, 0)},
             'Chest': {'rot': (deg(15), deg(45), deg(-6)), 'loc': (0, 0, 0)},
             'Head': {'rot': (deg(2), deg(-40), deg(2)), 'loc': (0, 0, 0)},
@@ -291,19 +336,20 @@ def build_attack():
             'UpperLeg.R': {'rot': (deg(-4), deg(0), deg(-2))},
             'LowerLeg.R': {'rot': (deg(-8), deg(0), deg(0))},
             'Foot.R': {'rot': (deg(6), deg(0), deg(0))},
-            'Shoulder.R': {'rot': (deg(-2), deg(26), deg(8)), 'loc': (0.01, 0.04, 0.0)},
-            'UpperArm.R': {'rot': (deg(8), deg(5), deg(5)), 'loc': (0.03, 0.05, 0.0)},
-            'Forearm.R': {'rot': (deg(0), deg(0), deg(-30)), 'loc': (0.04, 0.05, -0.01)},
-            'Hand.R': {'rot': (deg(42), deg(-12), deg(140)), 'loc': (0.11, 0.15, -0.04)},
-            'Socket_Hand_R': {'rot': (deg(-22), deg(20), deg(10)), 'loc': (0, 0, 0)},
             'Shoulder.L': {'rot': (deg(14), deg(-22), deg(-4)), 'loc': (0.0, -0.04, 0.0)},
             'UpperArm.L': {'rot': (deg(-28), deg(-25), deg(-10)), 'loc': (0, -0.09, 0)},
             'Forearm.L': {'rot': (deg(0), deg(0), deg(-20)), 'loc': (0, -0.09, 0)},
             'Hand.L': {'rot': (deg(0), deg(0), deg(-45)), 'loc': (0.08, -0.13, -0.05)},
         }),
 
-        # F34: Recovery Phase 1 - Pulling back from Left Flank
+        # Frame 34: Recovery Phase 1 - Pulling back from Left Flank
         (34, {
+            'hand_pos': Vector((0.08, 0.12, 0.20)),
+            'blade_dir': Vector((0.40, 0.20, 0.89)),
+            'edge_dir': Vector((0.85, 0.35, -0.39)),
+            'UpperArm.R': {'rot': (deg(12), deg(2), deg(8)), 'loc': (0.01, 0.03, 0.0)},
+            'Forearm.R': {'rot': (deg(0), deg(0), deg(-22)), 'loc': (0.01, 0.03, 0.0)},
+            'Shoulder.R': {'rot': (deg(2), deg(12), deg(6)), 'loc': (0.0, 0.02, 0.0)},
             'Hips': {'rot': (deg(-2), deg(18), deg(-2)), 'loc': (0, 0, 0)},
             'Chest': {'rot': (deg(10), deg(20), deg(-2)), 'loc': (0, 0, 0)},
             'Head': {'rot': (deg(0), deg(-18), deg(0)), 'loc': (0, 0, 0)},
@@ -313,19 +359,20 @@ def build_attack():
             'UpperLeg.R': {'rot': (deg(-8), deg(0), deg(-3))},
             'LowerLeg.R': {'rot': (deg(-12), deg(0), deg(0))},
             'Foot.R': {'rot': (deg(7), deg(0), deg(0))},
-            'Shoulder.R': {'rot': (deg(2), deg(15), deg(8)), 'loc': (0.0, 0.03, 0.0)},
-            'UpperArm.R': {'rot': (deg(15), deg(5), deg(10)), 'loc': (0.01, 0.04, 0.0)},
-            'Forearm.R': {'rot': (deg(0), deg(0), deg(-25)), 'loc': (0.02, 0.04, 0.0)},
-            'Hand.R': {'rot': (deg(30), deg(0), deg(95)), 'loc': (0.04, 0.12, -0.01)},
-            'Socket_Hand_R': {'rot': (deg(-10), deg(15), deg(0)), 'loc': (0, 0, 0)},
             'Shoulder.L': {'rot': (deg(5), deg(-10), deg(-6)), 'loc': (0.01, -0.01, 0.0)},
             'UpperArm.L': {'rot': (deg(-10), deg(-10), deg(-15)), 'loc': (0, -0.04, 0)},
             'Forearm.L': {'rot': (deg(0), deg(0), deg(-30)), 'loc': (0, -0.04, 0)},
             'Hand.L': {'rot': (deg(5), deg(0), deg(-20)), 'loc': (0.05, -0.05, -0.02)},
         }),
 
-        # F42: Recovery Phase 2 - Returning toward Guard Position
+        # Frame 42: Recovery Phase 2 - Returning toward Guard
         (42, {
+            'hand_pos': Vector((-0.03, 0.09, 0.17)),
+            'blade_dir': Vector((0.22, 0.38, 0.89)),
+            'edge_dir': Vector((0.88, 0.40, -0.25)),
+            'UpperArm.R': {'rot': (deg(14), deg(1), deg(9)), 'loc': (0.0, 0.02, 0.0)},
+            'Forearm.R': {'rot': (deg(0), deg(0), deg(-21)), 'loc': (0.0, 0.02, 0.0)},
+            'Shoulder.R': {'rot': (deg(4), deg(4), deg(7)), 'loc': (-0.005, 0.02, 0.0)},
             'Hips': {'rot': (deg(-4), deg(4), deg(0)), 'loc': (0, 0, 0)},
             'Chest': {'rot': (deg(8), deg(4), deg(0)), 'loc': (0, 0, 0)},
             'Head': {'rot': (deg(-1), deg(-4), deg(0)), 'loc': (0, 0, 0)},
@@ -335,19 +382,20 @@ def build_attack():
             'UpperLeg.R': {'rot': (deg(-9), deg(0), deg(-3))},
             'LowerLeg.R': {'rot': (deg(-13), deg(0), deg(0))},
             'Foot.R': {'rot': (deg(7), deg(0), deg(0))},
-            'Shoulder.R': {'rot': (deg(4), deg(5), deg(8)), 'loc': (-0.005, 0.025, 0.0)},
-            'UpperArm.R': {'rot': (deg(18), deg(2), deg(10)), 'loc': (0.005, 0.03, 0.0)},
-            'Forearm.R': {'rot': (deg(0), deg(0), deg(-22)), 'loc': (0.01, 0.03, 0.01)},
-            'Hand.R': {'rot': (deg(20), deg(0), deg(50)), 'loc': (-0.005, 0.08, 0.01)},
-            'Socket_Hand_R': {'rot': (deg(0), deg(12), deg(0)), 'loc': (0, 0, 0)},
             'Shoulder.L': {'rot': (deg(-1), deg(-2), deg(-7)), 'loc': (0.01, 0.01, 0.0)},
             'UpperArm.L': {'rot': (deg(5), deg(-2), deg(-15)), 'loc': (0, -0.01, 0)},
             'Forearm.L': {'rot': (deg(0), deg(0), deg(-32)), 'loc': (0, -0.01, 0)},
             'Hand.L': {'rot': (deg(8), deg(0), deg(-10)), 'loc': (0.03, 0.0, -0.01)},
         }),
 
-        # F48: Seamless Reset back to Frame 1 Ready Guard
+        # Frame 48: Seamless Reset back to Frame 1
         (48, {
+            'hand_pos': Vector((-0.09, 0.08, 0.16)),
+            'blade_dir': Vector((0.15, 0.45, 0.88)),
+            'edge_dir': Vector((0.85, 0.50, -0.15)),
+            'UpperArm.R': {'rot': (deg(15), deg(0), deg(10)), 'loc': (0, 0.01, 0)},
+            'Forearm.R': {'rot': (deg(0), deg(0), deg(-20)), 'loc': (0, 0.01, 0)},
+            'Shoulder.R': {'rot': (deg(5), deg(0), deg(8)), 'loc': (-0.01, 0.02, 0.0)},
             'Hips': {'rot': (deg(-4), deg(-6), deg(0)), 'loc': (0, 0, 0)},
             'Chest': {'rot': (deg(6), deg(-6), deg(0)), 'loc': (0, 0, 0)},
             'Head': {'rot': (deg(-2), deg(6), deg(0)), 'loc': (0, 0, 0)},
@@ -357,22 +405,21 @@ def build_attack():
             'UpperLeg.R': {'rot': (deg(-10), deg(0), deg(-4))},
             'LowerLeg.R': {'rot': (deg(-14), deg(0), deg(0))},
             'Foot.R': {'rot': (deg(8), deg(0), deg(0))},
-            'Shoulder.R': {'rot': (deg(5), deg(0), deg(8)), 'loc': (-0.01, 0.02, 0.0)},
-            'UpperArm.R': {'rot': (deg(20), deg(0), deg(10)), 'loc': (0, 0.02, 0)},
-            'Forearm.R': {'rot': (deg(0), deg(0), deg(-20)), 'loc': (0, 0.02, 0)},
-            'Hand.R': {'rot': (deg(15), deg(0), deg(20)), 'loc': (-0.02, 0.06, 0.02)},
-            'Socket_Hand_R': {'rot': (deg(10), deg(10), deg(0)), 'loc': (0, 0, 0)},
             'Shoulder.L': {'rot': (deg(-5), deg(0), deg(-8)), 'loc': (0.01, 0.02, 0.0)},
             'UpperArm.L': {'rot': (deg(15), deg(0), deg(-15)), 'loc': (0, 0.02, 0)},
-            'Forearm.L': {'rot': (deg(0), deg(0), deg(-35)), 'loc': (0, 0.0, 0)},
+            'Forearm.L': {'rot': (deg(0), deg(0), deg(-35)), 'loc': (0, 0, 0)},
             'Hand.L': {'rot': (deg(10), deg(0), deg(0)), 'loc': (0.02, 0.04, 0.0)},
         }),
     ]
 
-    # Insert keyframes
-    for frame, pose_dict in keyframe_data:
+    # Insert keyframes with mathematical hand solver
+    for frame, spec in keyframe_specs:
         bpy.context.scene.frame_set(frame)
-        for bone_name, tform in pose_dict.items():
+
+        # 1. Apply body & arm joint poses
+        for bone_name, tform in spec.items():
+            if bone_name in ('hand_pos', 'blade_dir', 'edge_dir'):
+                continue
             pb = pbones.get(bone_name)
             if not pb:
                 continue
@@ -383,6 +430,27 @@ def build_attack():
             if 'loc' in tform:
                 pb.location = Vector(tform['loc'])
                 pb.keyframe_insert(data_path="location", frame=frame)
+
+        # Update view layer so parent bone world matrices are accurate
+        bpy.context.view_layer.update()
+
+        # 2. Solve and apply exact Hand.R world matrix
+        hand_world_mat = solve_hand_matrix(
+            pb_hand_r,
+            pb_socket_r,
+            spec['hand_pos'],
+            spec['blade_dir'],
+            spec['edge_dir']
+        )
+        pb_hand_r.matrix = hand_world_mat
+        pb_hand_r.keyframe_insert(data_path="location", frame=frame)
+        pb_hand_r.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+        # Keep Socket_Hand_R keyframed at local identity
+        pb_socket_r.location = Vector((0, 0, 0))
+        pb_socket_r.rotation_euler = Euler((0, 0, 0), 'XYZ')
+        pb_socket_r.keyframe_insert(data_path="location", frame=frame)
+        pb_socket_r.keyframe_insert(data_path="rotation_euler", frame=frame)
 
     # Set interpolation to BEZIER
     if act.fcurves:
@@ -403,7 +471,7 @@ def build_attack():
             root_pb.location.z = -min_z
             root_pb.keyframe_insert(data_path="location", frame=f)
 
-    print("Keyframed 5-Phase Rayman Circular Cleave Strike with aligned weapon kinematics.")
+    print("Keyframed 180° Top-Down Circular Arc Combat Strike.")
 
     # --- TEMPORARY AUDIT SWORD ATTACHMENT ---
     audit_sword = create_temp_sword()
@@ -413,7 +481,6 @@ def build_attack():
     audit_sword.matrix_local.identity()
 
     # --- HIGH VISIBILITY 3-POINT STUDIO LIGHTING ---
-    # Sun Key Light (Warm, high angle from front-left)
     key_light = bpy.data.lights.new(name="Key_Light", type='SUN')
     key_light.energy = 5.0
     key_light.color = (1.0, 0.96, 0.90)
@@ -421,15 +488,13 @@ def build_attack():
     bpy.context.scene.collection.objects.link(key_obj)
     key_obj.rotation_euler = (deg(50), deg(-15), deg(35))
 
-    # Sun Fill Light (Cool cyan, from front-right)
     fill_light = bpy.data.lights.new(name="Fill_Light", type='SUN')
-    fill_light.energy = 3.2
+    fill_light.energy = 3.5
     fill_light.color = (0.75, 0.88, 1.0)
     fill_obj = bpy.data.objects.new("Fill_Light", fill_light)
     bpy.context.scene.collection.objects.link(fill_obj)
     fill_obj.rotation_euler = (deg(60), deg(25), deg(-65))
 
-    # Sun Rim Light (Crisp edge light from behind-high)
     rim_light = bpy.data.lights.new(name="Rim_Light", type='SUN')
     rim_light.energy = 4.5
     rim_light.color = (0.6, 0.9, 1.0)
@@ -437,12 +502,27 @@ def build_attack():
     bpy.context.scene.collection.objects.link(rim_obj)
     rim_obj.rotation_euler = (deg(-55), deg(20), deg(160))
 
-    # --- CAMERAS (FRONT 3/4 & SIDE PROFILE) ---
+    # Top Light (Direct down for top-view illumination)
+    top_light = bpy.data.lights.new(name="Top_Light", type='SUN')
+    top_light.energy = 3.0
+    top_light.color = (1.0, 1.0, 1.0)
+    top_obj = bpy.data.objects.new("Top_Light", top_light)
+    bpy.context.scene.collection.objects.link(top_obj)
+    top_obj.rotation_euler = (0, 0, 0)
+
+    # --- CAMERAS: TOP-DOWN ("Вид сверху"), FRONT 3/4, SIDE PROFILE ---
     cam_target = bpy.data.objects.new("Cam_Target", None)
     cam_target.location = Vector((0.0, 0.0, 0.25))
     bpy.context.scene.collection.objects.link(cam_target)
 
-    # Camera A: Front 3/4 Eye-Level Perspective
+    # Camera 0: Pure Top-Down Perspective ("Вид сверху")
+    cam_top_data = bpy.data.cameras.new("Cam_Top")
+    cam_top = bpy.data.objects.new("Cam_Top", cam_top_data)
+    bpy.context.scene.collection.objects.link(cam_top)
+    cam_top.location = Vector((0.0, 0.0, 1.6))
+    cam_top.rotation_euler = (0, 0, deg(180)) # Character faces down in image (matching sketch!)
+
+    # Camera A: Front 3/4 Perspective
     cam_a_data = bpy.data.cameras.new("Cam_Front34")
     cam_a = bpy.data.objects.new("Cam_Front34", cam_a_data)
     bpy.context.scene.collection.objects.link(cam_a)
@@ -470,9 +550,9 @@ def build_attack():
     bpy.context.scene.view_settings.look = 'AgX - Medium High Contrast'
     bpy.context.scene.render.film_transparent = False
 
-    # --- DUAL-ANGLE FILMSTRIP GENERATION ---
+    # --- 3-ROW FILMSTRIP GENERATION (TOP-DOWN, FRONT 3/4, SIDE) ---
     audit_frames = [1, 8, 14, 16, 18, 20, 22, 48]
-    print(f"\nRendering dual-angle contact sheet across frames: {audit_frames}...")
+    print(f"\nRendering 3-row contact sheet across frames: {audit_frames}...")
 
     bpy.context.scene.render.resolution_x = 256
     bpy.context.scene.render.resolution_y = 256
@@ -480,13 +560,19 @@ def build_attack():
     for f in audit_frames:
         bpy.context.scene.frame_set(f)
         
-        # Angle A (Front 3/4)
+        # Row 1: Top-Down View ("Вид сверху")
+        bpy.context.scene.camera = cam_top
+        path_top = os.path.join(base_dir, f"temp_fl_top_{f:02d}.png")
+        bpy.context.scene.render.filepath = path_top
+        bpy.ops.render.render(write_still=True)
+
+        # Row 2: Front 3/4 View
         bpy.context.scene.camera = cam_a
         path_a = os.path.join(base_dir, f"temp_fl_a_{f:02d}.png")
         bpy.context.scene.render.filepath = path_a
         bpy.ops.render.render(write_still=True)
 
-        # Angle B (Side Profile)
+        # Row 3: Side Profile View
         bpy.context.scene.camera = cam_b
         path_b = os.path.join(base_dir, f"temp_fl_b_{f:02d}.png")
         bpy.context.scene.render.filepath = path_b
@@ -496,18 +582,18 @@ def build_attack():
     ps_cmd = f"""
 Add-Type -AssemblyName System.Drawing
 $width = {len(audit_frames)} * 256
-$height = 512
+$height = 768
 $filmstrip = New-Object System.Drawing.Bitmap($width, $height)
 $g = [System.Drawing.Graphics]::FromImage($filmstrip)
 $g.Clear([System.Drawing.Color]::FromArgb(255, 14, 14, 17))
 
 $frames = @({', '.join(map(str, audit_frames))})
 
-# Draw Row 1: Front 3/4 View
+# Draw Row 1: Top-Down View (Вид сверху)
 for ($i = 0; $i -lt $frames.Count; $i++) {{
     $f = $frames[$i]
     $fStr = "{{0:D2}}" -f $f
-    $path = Join-Path "{base_dir}" "temp_fl_a_$fStr.png"
+    $path = Join-Path "{base_dir}" "temp_fl_top_$fStr.png"
     if (Test-Path $path) {{
         $img = [System.Drawing.Image]::FromFile((Resolve-Path $path))
         $g.DrawImage($img, ($i * 256), 0, 256, 256)
@@ -516,14 +602,27 @@ for ($i = 0; $i -lt $frames.Count; $i++) {{
     }}
 }}
 
-# Draw Row 2: Side Profile View
+# Draw Row 2: Front 3/4 View
+for ($i = 0; $i -lt $frames.Count; $i++) {{
+    $f = $frames[$i]
+    $fStr = "{{0:D2}}" -f $f
+    $path = Join-Path "{base_dir}" "temp_fl_a_$fStr.png"
+    if (Test-Path $path) {{
+        $img = [System.Drawing.Image]::FromFile((Resolve-Path $path))
+        $g.DrawImage($img, ($i * 256), 256, 256, 256)
+        $img.Dispose()
+        Remove-Item $path -Force
+    }}
+}}
+
+# Draw Row 3: Side Profile View
 for ($i = 0; $i -lt $frames.Count; $i++) {{
     $f = $frames[$i]
     $fStr = "{{0:D2}}" -f $f
     $path = Join-Path "{base_dir}" "temp_fl_b_$fStr.png"
     if (Test-Path $path) {{
         $img = [System.Drawing.Image]::FromFile((Resolve-Path $path))
-        $g.DrawImage($img, ($i * 256), 256, 256, 256)
+        $g.DrawImage($img, ($i * 256), 512, 256, 256)
         $img.Dispose()
         Remove-Item $path -Force
     }}
@@ -534,7 +633,7 @@ $filmstrip.Save("{dual_strip_path}", [System.Drawing.Imaging.ImageFormat]::Png)
 $filmstrip.Dispose()
 """
     subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True)
-    print(f"Dual-angle filmstrip saved to {dual_strip_path}")
+    print(f"3-row filmstrip saved to {dual_strip_path}")
 
     # --- BEAUTY RENDER AT APEX WINDUP FRAME (F14) ---
     print("\nRendering high-res beauty render 'swordsman_render.png'...")
@@ -551,7 +650,7 @@ $filmstrip.Dispose()
     # Clean up temporary audit sword before GLB export (keep hands empty)
     bpy.data.objects.remove(audit_sword, do_unlink=True)
 
-    for c in [cam_a, cam_b, cam_target]:
+    for c in [cam_top, cam_a, cam_b, cam_target]:
         if hasattr(c, 'data') and c.data:
             c_data = c.data
             bpy.data.objects.remove(c, do_unlink=True)
@@ -559,7 +658,7 @@ $filmstrip.Dispose()
         else:
             bpy.data.objects.remove(c, do_unlink=True)
 
-    for l_obj in [key_obj, fill_obj, rim_obj]:
+    for l_obj in [key_obj, fill_obj, rim_obj, top_obj]:
         l_data = l_obj.data
         bpy.data.objects.remove(l_obj, do_unlink=True)
         bpy.data.lights.remove(l_data, do_unlink=True)
@@ -593,7 +692,7 @@ $filmstrip.Dispose()
 
     bpy.ops.wm.save_mainfile(filepath=blend_path)
     print(f"Saved {blend_path}")
-    print("=== SWORDSMAN CIRCULAR COMBAT ANIMATION REBUILD COMPLETE ===")
+    print("=== SWORDSMAN 180° CIRCULAR COMBAT ANIMATION REBUILD COMPLETE ===")
 
 if __name__ == "__main__":
     build_attack()
