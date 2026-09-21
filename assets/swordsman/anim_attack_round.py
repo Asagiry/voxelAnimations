@@ -415,7 +415,7 @@ print(f"Saved Contact Sheet to: {{filmstrip_final_path}}")
     for track in list(arm.animation_data.nla_tracks):
         arm.animation_data.nla_tracks.remove(track)
 
-    for act_name in ['Walk', 'Attack', 'Attack_Round']:
+    for act_name in ['Attack_Round', 'Walk', 'Attack']:
         a = bpy.data.actions.get(act_name)
         if a:
             track = arm.animation_data.nla_tracks.new()

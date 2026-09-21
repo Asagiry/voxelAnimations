@@ -79,14 +79,17 @@ button {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   position: relative;
   overflow: hidden;
 }
 
 .viewport-container {
   flex: 1;
+  min-height: 0;
   position: relative;
   background: #09090b;
+  overflow: hidden;
 }
 
 /* Viewer Header */
