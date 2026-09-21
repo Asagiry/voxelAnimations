@@ -372,11 +372,16 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
           );
         }
 
-        // Search for weapon socket
-        const socket =
-          currentModel.getObjectByName('Socket_Hand_R') ||
-          currentModel.getObjectByName('Hand.R') ||
-          currentModel.getObjectByName('Hand_R');
+        // Search for weapon socket based on activeClip (Left Hand for Attack_Round, Right Hand default)
+        const isLeftHandClip = activeClip?.toLowerCase().includes('round');
+        const socket = isLeftHandClip
+          ? currentModel.getObjectByName('Socket_Hand_L') ||
+            currentModel.getObjectByName('Hand.L') ||
+            currentModel.getObjectByName('Socket_Hand_R')
+          : currentModel.getObjectByName('Socket_Hand_R') ||
+            currentModel.getObjectByName('Hand.R') ||
+            currentModel.getObjectByName('Socket_Hand_L') ||
+            currentModel.getObjectByName('Hand.L');
 
         console.log('[ModelViewer] Loaded equipped weapon:', equippedWeaponUrl);
         console.log('[ModelViewer] Weapon scene children:', weaponScene.children.map(c => c.name));
@@ -398,7 +403,7 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
         console.error('Failed to load equipped weapon GLB:', err);
       }
     );
-  }, [equippedWeaponUrl, modelReadyEpoch]);
+  }, [equippedWeaponUrl, modelReadyEpoch, activeClip]);
 
   // Update Weapon Transform in real-time when sliders change
   useEffect(() => {
