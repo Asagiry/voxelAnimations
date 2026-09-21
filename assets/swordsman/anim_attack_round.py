@@ -289,23 +289,23 @@ def build_attack_round():
             r_val = R_ready + (R_strike - R_ready) * e_wind
             z_val = Z_ready + (Z_strike - Z_ready) * e_wind
             bf = -e_wind
-        elif frame <= 26:
-            # Phase 2: Fast explosive 220° circular strike from deep behind the back (F18-F26, 8 frames)
-            t_strike = (frame - 18) / 8.0
-            e_strike = t_strike ** 1.8
+        elif frame <= 23:
+            # Phase 2: Ultra-fast explosive 220° circular strike from deep behind the back (F18-F23, 5 frames!)
+            t_strike = (frame - 18) / 5.0
+            e_strike = t_strike ** 2.0
             deg_val = -95.0 + (-315.0 - (-95.0)) * e_strike
             r_val = R_strike
             z_val = Z_strike
             bf = -1.0 + 2.0 * e_strike
-        elif frame <= 28:
-            # Phase 3: Crisp impact hold / hit-stop (F26-F28)
+        elif frame <= 26:
+            # Phase 3: Crisp impact hold / hit-stop (F23-F26, 3 frames)
             deg_val = -315.0
             r_val = R_strike
             z_val = Z_strike
             bf = 1.0
         else:
-            # Phase 4: Fast, crisp recovery back to ready stance (F28-F36, 8 frames)
-            t_rec = (frame - 28) / 8.0
+            # Phase 4: Fast, crisp recovery back to ready stance (F26-F36, 10 frames)
+            t_rec = (frame - 26) / 10.0
             e_rec = 1.0 - ((1.0 - t_rec) ** 2)
             deg_val = -315.0 + (-210.0 - (-315.0)) * e_rec
             r_val = R_strike + (R_ready - R_strike) * e_rec
@@ -320,7 +320,7 @@ def build_attack_round():
         #   - Hips 0° to -22°, Chest 0° to -36°
         # Strike impact (bf >= 0):
         #   - Torso whips counter-clockwise (positive Yaw) driving Left Shoulder forward into the strike!
-        #   - Hips 0° to +24°, Chest 0° to +38°, martial forward lean up to +10°
+        #   - Hips 0° to +24°, Chest 0° to +38°, martial forward lean up to +18°!
         if bf < 0:
             hips_yaw = math.radians(bf * 22.0)
             chest_total_yaw = math.radians(bf * 36.0)
@@ -328,7 +328,7 @@ def build_attack_round():
         else:
             hips_yaw = math.radians(bf * 24.0)
             chest_total_yaw = math.radians(bf * 38.0)
-            chest_lean = math.radians(bf * 10.0)
+            chest_lean = math.radians(bf * 18.0)
 
         chest_yaw_rel = chest_total_yaw - hips_yaw
         head_yaw_rel = -chest_total_yaw
@@ -428,8 +428,10 @@ def build_attack_round():
 
         bpy.context.view_layer.update()
 
-        # 6. Hand.L Position on Dynamic Radius and Height
-        h_pos = Vector((C_xy.x, C_xy.y, z_val)) + Vector((-r_val * math.cos(th), r_val * math.sin(th), 0.0))
+        # 6. Hand.L Position on Dynamic Radius, Height, and Forward Lunge
+        forward_lunge = max(0.0, bf) * 0.035
+        down_cut = max(0.0, bf) * 0.015
+        h_pos = Vector((C_xy.x, C_xy.y + forward_lunge, z_val - down_cut)) + Vector((-r_val * math.cos(th), r_val * math.sin(th), 0.0))
 
         # Shoulder world position
         sh_pos = pb_shoulder_l.matrix.to_translation()
@@ -481,7 +483,7 @@ def build_attack_round():
 
     # --- MULTI-ANGLE 3-ROW FILMSTRIP GENERATION ---
     print("\n--- RENDERING 3-ROW CONTACT SHEET (attack_round_filmstrip.png) ---")
-    filmstrip_frames = [1, 6, 12, 18, 22, 26, 30, 36]
+    filmstrip_frames = [1, 6, 12, 18, 20, 23, 28, 36]
     filmstrip_cols = len(filmstrip_frames)
 
     scene = bpy.context.scene
@@ -572,8 +574,8 @@ for r in range(views):
                 pass
 
 row_labels = [
-    "TOP-DOWN (Slow Windup F01-18, Fast Strike F18-26, Fast Recovery F28-36)",
-    "FRONT 3/4 (Dynamic Torso & Leg Twist Synchronization)",
+    "TOP-DOWN (Slow Windup F01-18, Ultra-Fast Strike F18-23, Recovery F26-36)",
+    "FRONT 3/4 (Deep Martial Forward Lean 18° & Explosive Slash)",
     "FRONT ELEVATION (Rock-Solid Ground Stance Z = 0.000m)"
 ]
 for r, label in enumerate(row_labels):
