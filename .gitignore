@@ -17,6 +17,16 @@ __pycache__/
 # Local temporary server logs
 *.log
 
+# Node modules & build artifacts
+node_modules/
+dist/
+
+# Scratch and temporary screenshots
+scratch/
+test_*.png
+
 # Explicitly track skills
 !skills/
 !skills/**
+
+

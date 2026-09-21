@@ -17,14 +17,16 @@ This document defines the strict kinematic and dimensional contract guaranteeing
 To ensure that any weapon (sword, scythe, katana, bow, staff) cleanly sits in a character's hand without clipping or floating:
 
 1. **Grip Cross-Section**:
-   - The grip handle must be modeled with a thickness of **$2 \times 2$ or $3 \times 3$ voxels** ($3.0\text{cm}$ to $4.5\text{cm}$).
-2. **Handle Origin & Pivot**:
-   - The origin $(0, 0, 0)$ of the weapon mesh in rest pose MUST be placed **at the center of the grip handle** where the character's hand wraps around it.
-   - The weapon shaft points along local $+Z$ (or local $+Y$ longitudinal axis).
-   - The cutting edge points forward (towards world $+Y$).
+   - The grip handle must be modeled with a thickness of strictly **$2 \times 2$ voxels** ($3.0\text{cm} \times 3.0\text{cm}$).
+2. **Handle Origin & Alignment Standard**:
+   - The origin $(0, 0, 0)$ of the weapon mesh in rest pose MUST be placed **strictly at the center of the grip handle** where the character's hand wraps around it.
+   - **Strict Orientation**:
+     * In Blender: The blade/shaft points strictly along **World $+Z$ (UP)**. Hilt and pommel extend along $-Z$ (DOWN). The cutting edge / blade front faces **World $+Y$ (FORWARD)**. Crossguard/quillons extend along $X$ (LEFT/RIGHT).
+     * In glTF export (`export_yup=True`): Blade points along $+Y$ (UP in Three.js/game engines), and cutting edge faces $+Z$ (FORWARD).
+   - **Pure Static Mesh**: Zero animations, zero armatures, zero display plinths or pedestals.
 3. **Attachment via Socket**:
    - In the character rig, the bone `Socket_Hand_R` is placed inside the cavity of the right gauntlet/hand.
-   - When parenting or copying transforms from `Socket_Hand_R`, the weapon snaps with $(0, 0, 0)$ offset and zero rotation discrepancy.
+   - When parenting the weapon to `Socket_Hand_R`, it mounts with identity transform `(0, 0, 0)` offset and zero rotation discrepancy. Zero manual sliders needed!
 
 ---
 
