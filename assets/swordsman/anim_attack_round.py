@@ -23,8 +23,10 @@ import base64
 import subprocess
 from mathutils import Vector, Euler, Matrix, Quaternion
 
+prev_quats = {}
+
 def set_bone_world_matrix(pb, target_mat):
-    """Accurately computes and sets local location & rotation for pb to achieve target_mat in Armature space."""
+    """Accurately computes and sets local location & quaternion rotation for pb to achieve target_mat in Armature space."""
     parent = pb.parent
     R_b = pb.bone.matrix_local
     if parent:
@@ -33,9 +35,16 @@ def set_bone_world_matrix(pb, target_mat):
         L_b = R_b.inverted() @ R_p @ M_p.inverted() @ target_mat
     else:
         L_b = R_b.inverted() @ target_mat
-    pb.rotation_mode = 'XYZ'
+    pb.rotation_mode = 'QUATERNION'
     pb.location = L_b.to_translation()
-    pb.rotation_euler = L_b.to_euler('XYZ')
+    q = L_b.to_quaternion()
+    # Sign continuity guard to prevent 180° quaternion hemisphere flip
+    bone_name = pb.name
+    if bone_name in prev_quats:
+        if q.dot(prev_quats[bone_name]) < 0.0:
+            q.negate()
+    pb.rotation_quaternion = q
+    prev_quats[bone_name] = q.copy()
 
 def solve_socket_hand_matrix_left(hand_pos, theta_rad):
     """
@@ -189,13 +198,8 @@ def create_temp_sword(arm):
     bm_edge.to_mesh(mesh)
     bm_edge.free()
 
-    # Transform all vertices by Socket_Hand_L's rest matrix_local for exact armature bind
-    b_sock = arm.data.bones['Socket_Hand_L']
-    mesh.transform(b_sock.matrix_local)
-
-    # Assign 100% rigid weight to Socket_Hand_L
-    vg = obj.vertex_groups.new(name="Socket_Hand_L")
-    vg.add(list(range(len(mesh.vertices))), 1.0, 'REPLACE')
+    # Keep local coordinate origin at grip center (0, 0, 0)
+    # Direct matrix_world binding will be applied on each frame for 100% Three.js parity
     return obj
 
 def build_attack_round():
@@ -297,14 +301,18 @@ def build_attack_round():
 
         th = math.radians(deg_val)
 
-        # 2. Rock-Solid Martial Stance (Zero-Wobble Anti-Matryoshka Rule)
-        # Body movement is pure disciplined YAW around vertical axis (bone local Y):
-        # Wind-up coil: Hips +18°, Chest +25°, forward lean 0°
-        # Strike peak: Hips -25°, Chest -35°, forward lean +7° (negative X in bone space)
-        hips_yaw = math.radians(18.0 + (-25.0 - 18.0) * body_twist_factor)
-        chest_total_yaw = math.radians(25.0 + (-35.0 - 25.0) * body_twist_factor)
+        # 2. Rock-Solid Martial Stance: Synchronized Torso Kinetic Chain
+        # Left Hand starts at Left-Rear (X > 0, Y < 0) and slashes to Right-Front (X < 0, Y > 0)
+        # Wind-up coil (body_twist_factor = 0):
+        #   - Torso rotates clockwise (negative Yaw) pulling Left Shoulder back with the arm!
+        #   - Hips -16°, Chest -26°
+        # Strike impact (body_twist_factor = 1):
+        #   - Torso whips counter-clockwise (positive Yaw) driving Left Shoulder forward into the strike!
+        #   - Hips +22°, Chest +34°, martial forward lean +8°
+        hips_yaw = math.radians(-16.0 + (22.0 - (-16.0)) * body_twist_factor)
+        chest_total_yaw = math.radians(-26.0 + (34.0 - (-26.0)) * body_twist_factor)
         chest_yaw_rel = chest_total_yaw - hips_yaw
-        chest_lean = math.radians(-7.0 * body_twist_factor)
+        chest_lean = math.radians(-8.0 * body_twist_factor)
 
         # Head target lock: counter-rotates yaw and lean so eyes stay locked straight ahead on front target
         head_yaw_rel = -chest_total_yaw
@@ -332,35 +340,37 @@ def build_attack_round():
             pb_head.keyframe_insert(data_path="location", frame=frame)
             pb_head.keyframe_insert(data_path="rotation_euler", frame=frame)
 
-        # 3. Shoulder.L: Outward offset from torso + natural extension
+        # 3. Shoulder.L: Outward offset from torso + synchronized forward drive
         sh_outward = 0.030
-        sh_forward = 0.015 * body_twist_factor
+        sh_forward = -0.015 + 0.040 * body_twist_factor
         pb_shoulder_l.rotation_mode = 'XYZ'
         pb_shoulder_l.location = Vector((sh_forward, sh_outward, 0.0))
-        pb_shoulder_l.rotation_euler = Euler((0.0, 0.0, math.radians(-10.0 + 25.0 * body_twist_factor)), 'XYZ')
+        pb_shoulder_l.rotation_euler = Euler((0.0, 0.0, math.radians(-15.0 + 35.0 * body_twist_factor)), 'XYZ')
         pb_shoulder_l.keyframe_insert(data_path="location", frame=frame)
         pb_shoulder_l.keyframe_insert(data_path="rotation_euler", frame=frame)
 
-        # 4. Offhand (Right Arm): Disciplined Martial Combat Guard (held firmly near right chest/flank)
+        # 4. Offhand (Right Arm): Martial Guard & Natural Counter-Balance
+        # On wind-up: held in front guard
+        # On strike: retracts naturally to right ribs/hip
         if pb_shoulder_r:
             pb_shoulder_r.rotation_mode = 'XYZ'
-            pb_shoulder_r.location = Vector((0.0, 0.015, 0.0))
-            pb_shoulder_r.rotation_euler = Euler((math.radians(4.0), 0.0, math.radians(6.0)), 'XYZ')
+            pb_shoulder_r.location = Vector((0.010 - 0.020 * body_twist_factor, 0.015, 0.0))
+            pb_shoulder_r.rotation_euler = Euler((math.radians(4.0), 0.0, math.radians(-6.0 + 12.0 * body_twist_factor)), 'XYZ')
             pb_shoulder_r.keyframe_insert(data_path="location", frame=frame)
             pb_shoulder_r.keyframe_insert(data_path="rotation_euler", frame=frame)
 
         if pb_upperarm_r:
             pb_upperarm_r.rotation_mode = 'XYZ'
             pb_upperarm_r.rotation_euler = Euler((
-                math.radians(14.0 + 4.0 * body_twist_factor),
+                math.radians(18.0 - 28.0 * body_twist_factor),
                 math.radians(10.0),
-                math.radians(-15.0)
+                math.radians(-12.0)
             ), 'XYZ')
             pb_upperarm_r.keyframe_insert(data_path="rotation_euler", frame=frame)
 
         if pb_forearm_r:
             pb_forearm_r.rotation_mode = 'XYZ'
-            pb_forearm_r.rotation_euler = Euler((math.radians(62.0 + 6.0 * body_twist_factor), 0.0, 0.0), 'XYZ')
+            pb_forearm_r.rotation_euler = Euler((math.radians(65.0 - 25.0 * body_twist_factor), 0.0, 0.0), 'XYZ')
             pb_forearm_r.keyframe_insert(data_path="rotation_euler", frame=frame)
 
         if pb_hand_r:
@@ -409,12 +419,12 @@ def build_attack_round():
         upper_mat, fore_mat = solve_arm_segments_mat(sh_pos, h_pos)
         set_bone_world_matrix(pb_upperarm_l, upper_mat)
         pb_upperarm_l.keyframe_insert(data_path="location", frame=frame)
-        pb_upperarm_l.keyframe_insert(data_path="rotation_euler", frame=frame)
+        pb_upperarm_l.keyframe_insert(data_path="rotation_quaternion", frame=frame)
         bpy.context.view_layer.update()
 
         set_bone_world_matrix(pb_forearm_l, fore_mat)
         pb_forearm_l.keyframe_insert(data_path="location", frame=frame)
-        pb_forearm_l.keyframe_insert(data_path="rotation_euler", frame=frame)
+        pb_forearm_l.keyframe_insert(data_path="rotation_quaternion", frame=frame)
         bpy.context.view_layer.update()
 
         # 8. Exact Hand.L & Socket_Hand_L world matrix (with 180° rotated blade edge)
@@ -423,7 +433,7 @@ def build_attack_round():
 
         set_bone_world_matrix(pb_hand_l, hand_mat)
         pb_hand_l.keyframe_insert(data_path="location", frame=frame)
-        pb_hand_l.keyframe_insert(data_path="rotation_euler", frame=frame)
+        pb_hand_l.keyframe_insert(data_path="rotation_quaternion", frame=frame)
 
         pb_socket_l.location = Vector((0, 0, 0))
         pb_socket_l.rotation_euler = Euler((0, 0, 0), 'XYZ')
@@ -436,26 +446,19 @@ def build_attack_round():
             for kp in fc.keyframe_points:
                 kp.interpolation = 'LINEAR'
 
-    # --- AUTOMATED GROUND SOLVER PASS (Z >= 0.0m INVARIANT) ---
-    print("\n--- RUNNING GROUND SOLVER PASS (Z >= 0.0m) ---")
-    depsgraph = bpy.context.evaluated_depsgraph_get()
+    # Lock Root bone completely static at origin (0, 0, 0) - Zero Vertical Vibration!
     if pb_root:
-        for f in range(1, 37):
-            bpy.context.scene.frame_set(f)
-            bpy.context.view_layer.update()
-            eval_mesh = mesh.evaluated_get(depsgraph)
-            min_z = min((eval_mesh.matrix_world @ v.co).z for v in eval_mesh.data.vertices)
-            pb_root.location.y = -min_z
-            pb_root.keyframe_insert(data_path="location", frame=f)
+        pb_root.location = Vector((0, 0, 0))
+        pb_root.rotation_euler = Euler((0, 0, 0), 'XYZ')
+        pb_root.keyframe_insert(data_path="location", frame=1)
+        pb_root.keyframe_insert(data_path="location", frame=36)
+        pb_root.keyframe_insert(data_path="rotation_euler", frame=1)
+        pb_root.keyframe_insert(data_path="rotation_euler", frame=36)
 
     print("Keyframed Attack_Round: Rock-solid stance, zero-roll yaw torque, and 180° katana slash.")
 
-    # --- TEMPORARY AUDIT SWORD ATTACHMENT VIA ARMATURE SKINNING ---
+    # --- TEMPORARY AUDIT SWORD ATTACHMENT VIA EXACT SOCKET MATRIX ---
     audit_sword = create_temp_sword(arm)
-    audit_sword.parent = arm
-    mod_sword = audit_sword.modifiers.new(name="Armature", type='ARMATURE')
-    mod_sword.object = arm
-    mod_sword.use_vertex_groups = True
 
     # --- MULTI-ANGLE 3-ROW FILMSTRIP GENERATION ---
     print("\n--- RENDERING 3-ROW CONTACT SHEET (attack_round_filmstrip.png) ---")
@@ -514,6 +517,8 @@ def build_attack_round():
 
         for col_idx, f in enumerate(filmstrip_frames):
             scene.frame_set(f)
+            bpy.context.view_layer.update()
+            audit_sword.matrix_world = arm.matrix_world @ pb_socket_l.matrix
             bpy.context.view_layer.update()
             temp_img_path = os.path.join(base_dir, f"temp_strip_round_r{row_idx}_c{col_idx}.png")
             scene.render.filepath = temp_img_path
