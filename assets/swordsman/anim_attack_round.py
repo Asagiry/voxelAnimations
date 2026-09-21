@@ -1,16 +1,17 @@
 """
 assets/swordsman/anim_attack_round.py
-Authoritative Left-Hand 180° Pure Flat Circular Sword Strike:
-- Left hand (Hand.L & Socket_Hand_L) starts on the LEFT side of the body (X > 0).
-- Sweep angle theta goes from -135° to -315°:
-  * Start (F6):    theta = -135° -> X = +0.198m, Y = -0.198m, Z = 0.28m (Behind Left Shoulder)
-  * Point 1 (F10): theta = -180° -> X = +0.280m, Y =  0.000m, Z = 0.28m (Left Flank)
-  * Point 2 (F14): theta = -225° -> X = +0.198m, Y = +0.198m, Z = 0.28m (Front-Left Diagonal)
-  * Point 3 (F18): theta = -270° -> X =  0.000m, Y = +0.280m, Z = 0.28m (Front Center Climax)
-  * Finish (F22):  theta = -315° -> X = -0.198m, Y = +0.198m, Z = 0.28m (Front-Right Follow-through)
-- Strict mathematical tangent blade: u_blade = (-sin(th), -cos(th), 0.0)
-- Outward radial cutting edge: u_edge = (-cos(th), sin(th), 0.0)
-- Arm segments (Shoulder.L, UpperArm.L, Forearm.L) align along the kinetic line of action.
+Dynamic Martial 180° Slash:
+- Katana cutting edge rotated 180° along blade axis to lead cleanly into the cut.
+- Shoulder.L displaced outward from torso (+X lateral offset) + widened hand arc (R = 0.35m, C = (0.03, 0.03, 0.28m))
+  giving full arm clearance and zero body-clinging.
+- Full-body martial torque ("бочком поворачивается"):
+  * Wind-up coil (F1–F5): Hips +25°, Chest +35°, lean -5°, Head counter-rotated -22° (target lock).
+  * Continuous accelerating power strike (F6–F20, t^1.45): Hips snap from +25° to -35°, Chest whips from +35° to -50°, +15° forward lean.
+  * Offhand counter-balance (Right Arm pulls back and flings outward).
+  * Impact hold (F21–F24) with subtle micro-tremor at F22.
+  * Smooth fluid cubic ease-out recovery (F25–F36): 1 - (1-t)^3 settling seamlessly back to ready coil.
+- Ground Plane Invariant (Z >= 0.0m).
+- Multi-angle 3-row filmstrip with dynamic look-at camera tracking.
 - Action & Primary NLA Track: 'Attack_Round'
 """
 
@@ -19,7 +20,7 @@ import os
 import math
 import base64
 import subprocess
-from mathutils import Vector, Euler, Matrix
+from mathutils import Vector, Euler, Matrix, Quaternion
 
 def set_bone_world_matrix(pb, target_mat):
     """Accurately computes and sets local location & rotation for pb to achieve target_mat in Armature space."""
@@ -36,9 +37,14 @@ def set_bone_world_matrix(pb, target_mat):
     pb.rotation_euler = L_b.to_euler('XYZ')
 
 def solve_socket_hand_matrix_left(hand_pos, theta_rad):
-    """Computes target world matrix for Socket_Hand_L on Left-Hand sweep."""
+    """
+    Computes target world matrix for Socket_Hand_L on Left-Hand sweep.
+    - y_blade: points along weapon shaft / blade length (local +Y)
+    - z_edge: cutting edge (local +Z). Flipped 180° around blade axis so the sharp edge faces into the cut.
+    """
     y_blade = Vector((-math.sin(theta_rad), -math.cos(theta_rad), 0.0)).normalized()
-    z_edge = Vector((-math.cos(theta_rad), math.sin(theta_rad), 0.0)).normalized()
+    # Flipped 180° around y_blade: (cos(th), -sin(th), 0)
+    z_edge = Vector((math.cos(theta_rad), -math.sin(theta_rad), 0.0)).normalized()
     x_cross = y_blade.cross(z_edge).normalized()
 
     socket_mat = Matrix((
@@ -58,7 +64,7 @@ def solve_hand_matrix_from_socket(pb_hand, pb_socket, socket_mat):
     return hand_mat
 
 def solve_arm_segments_mat(shoulder_pos, hand_pos):
-    """Computes world matrices for UpperArm.L and Forearm.L along line of action."""
+    """Computes world matrices for UpperArm.L and Forearm.L along kinetic line of action."""
     arm_vec = hand_pos - shoulder_pos
     dist = arm_vec.length
     arm_dir = arm_vec.normalized()
@@ -87,8 +93,14 @@ def solve_arm_segments_mat(shoulder_pos, hand_pos):
     ))
     return upper_mat, fore_mat
 
+def point_camera_at(cam_obj, target_loc):
+    """Points camera directly at target_loc using Quaternion look-at."""
+    direction = target_loc - cam_obj.location
+    rot_quat = direction.to_track_quat('-Z', 'Y')
+    cam_obj.rotation_euler = rot_quat.to_euler('XYZ')
+
 def create_temp_sword():
-    """Creates a stylized voxel sword mesh for Socket_Hand_L for visual audit."""
+    """Creates a stylized voxel katana mesh for Socket_Hand_L for visual audit with red cutting edge."""
     mesh = bpy.data.meshes.new("Temp_Audit_Sword_L")
     obj = bpy.data.objects.new("Temp_Audit_Sword_L", mesh)
     bpy.context.scene.collection.objects.link(obj)
@@ -101,11 +113,11 @@ def create_temp_sword():
     mat_blade.use_nodes = True
     bsdf = mat_blade.node_tree.nodes.get("Principled BSDF")
     if bsdf:
-        bsdf.inputs['Base Color'].default_value = (0.2, 0.75, 1.0, 1.0)
-        bsdf.inputs['Metallic'].default_value = 0.9
+        bsdf.inputs['Base Color'].default_value = (0.2, 0.8, 1.0, 1.0)
+        bsdf.inputs['Metallic'].default_value = 0.95
         bsdf.inputs['Roughness'].default_value = 0.15
         if 'Emission Color' in bsdf.inputs:
-            bsdf.inputs['Emission Color'].default_value = (0.2, 0.75, 1.0, 1.0)
+            bsdf.inputs['Emission Color'].default_value = (0.2, 0.8, 1.0, 1.0)
             bsdf.inputs['Emission Strength'].default_value = 1.0
     obj.data.materials.append(mat_blade)
 
@@ -118,21 +130,45 @@ def create_temp_sword():
         bsdf_g.inputs['Roughness'].default_value = 0.25
     obj.data.materials.append(mat_gold)
 
-    # Blade voxels along local +Y of bone
+    # Red cutting edge on +Z
+    mat_edge = bpy.data.materials.new(name="M_Audit_Edge_L")
+    mat_edge.use_nodes = True
+    bsdf_e = mat_edge.node_tree.nodes.get("Principled BSDF")
+    if bsdf_e:
+        bsdf_e.inputs['Base Color'].default_value = (1.0, 0.1, 0.25, 1.0)
+        if 'Emission Color' in bsdf_e.inputs:
+            bsdf_e.inputs['Emission Color'].default_value = (1.0, 0.1, 0.25, 1.0)
+            bsdf_e.inputs['Emission Strength'].default_value = 3.0
+    obj.data.materials.append(mat_edge)
+
+    # Katana blade along local +Y
     bmesh.ops.create_cube(bm, size=1.0)
     for v in bm.verts:
-        v.co.x *= 0.035
-        v.co.y = v.co.y * 0.21 + 0.24 # y from 0.03 to 0.45
-        v.co.z *= 0.015
+        v.co.x *= 0.026
+        v.co.y = v.co.y * 0.26 + 0.28 # y from 0.02 to 0.54
+        v.co.z *= 0.016
     for f in bm.faces:
         f.material_index = 0
 
+    # Red cutting edge strip at local +Z
+    bm_edge = bmesh.new()
+    bmesh.ops.create_cube(bm_edge, size=1.0)
+    for v in bm_edge.verts:
+        v.co.x *= 0.012
+        v.co.y = v.co.y * 0.26 + 0.28
+        v.co.z = v.co.z * 0.005 + 0.012 # positive +Z edge
+    for f in bm_edge.faces:
+        f.material_index = 2
+    bm_edge.to_mesh(mesh)
+    bm_edge.free()
+
+    # Guard (Tsuba)
     bm_guard = bmesh.new()
     bmesh.ops.create_cube(bm_guard, size=1.0)
     for v in bm_guard.verts:
-        v.co.x *= 0.11
+        v.co.x *= 0.09
         v.co.y = v.co.y * 0.02 + 0.02
-        v.co.z *= 0.03
+        v.co.z *= 0.07
     for f in bm_guard.faces:
         f.material_index = 1
     bm_guard.to_mesh(mesh)
@@ -179,76 +215,191 @@ def build_attack_round():
         pb.location = Vector((0, 0, 0))
         pb.rotation_euler = Euler((0, 0, 0), 'XYZ')
 
+    pb_root = pbones.get('Root')
+    pb_hips = pbones.get('Hips')
+    pb_chest = pbones.get('Chest')
+    pb_head = pbones.get('Head')
     pb_shoulder_l = pbones['Shoulder.L']
     pb_upperarm_l = pbones['UpperArm.L']
     pb_forearm_l = pbones['Forearm.L']
     pb_hand_l = pbones['Hand.L']
     pb_socket_l = pbones['Socket_Hand_L']
 
+    pb_shoulder_r = pbones.get('Shoulder.R')
+    pb_upperarm_r = pbones.get('UpperArm.R')
+    pb_forearm_r = pbones.get('Forearm.R')
+    pb_hand_r = pbones.get('Hand.R')
+    pb_socket_r = pbones.get('Socket_Hand_R')
+
+    pb_leg_l = pbones.get('UpperLeg.L')
+    pb_shin_l = pbones.get('LowerLeg.L')
+    pb_foot_l = pbones.get('Foot.L')
+
+    pb_leg_r = pbones.get('UpperLeg.R')
+    pb_shin_r = pbones.get('LowerLeg.R')
+    pb_foot_r = pbones.get('Foot.R')
+
     bpy.context.scene.frame_start = 1
     bpy.context.scene.frame_end = 36
 
     # -------------------------------------------------------------------------
-    # TRUE LEFT-HAND CIRCULAR TRAJECTORY FROM -135° TO -315°
-    # Center = (0, 0, 0.28m), R = 0.28m, Z_const = 0.28m
-    # X = -R * cos(th) (Positive X on left side), Y = R * sin(th)
+    # EXPANDED REACH TRAJECTORY:
+    # Radius R = 0.35m, Center = (0.02, 0.03, 0.28m)
     # -------------------------------------------------------------------------
-    R = 0.28
-    Z_const = 0.28
-    C = Vector((0.0, 0.0, Z_const))
+    R = 0.35
+    Z_strike = 0.28
+    C_base = Vector((0.02, 0.03, Z_strike))
 
-    def get_circle_pos_left(deg_val):
-        th = math.radians(deg_val)
-        return C + Vector((-R * math.cos(th), R * math.sin(th), 0.0)), th
+    F_start = 6
+    F_end = 20
 
-    # Keyframe Specs across the rotation
-    keyframe_specs = [
-        # Frame 1: Hold Start Angle (-135°) behind Left Shoulder
-        (1, {'deg': -135}),
-        # Frame 6: Ready to Sweep (-135°)
-        (6, {'deg': -135}),
-        # Frame 10: Sweep along Left Flank (-180°)
-        (10, {'deg': -180}),
-        # Frame 14: Sweep Front-Left Diagonal (-225°)
-        (14, {'deg': -225}),
-        # Frame 18: Front Center Climax (-270°)
-        (18, {'deg': -270}),
-        # Frame 22: Reached Front-Right Finish (-315°)
-        (22, {'deg': -315}),
-        # Frame 26: Hold Target Angle (-315°)
-        (26, {'deg': -315}),
-        # Frame 36: Return to Start (-135°)
-        (36, {'deg': -135}),
-    ]
-
-    # Set Neutral Poses for other body parts (Right arm, hips, chest, head, legs)
-    for frame, spec in keyframe_specs:
+    # Keyframe every frame across [1, 36]
+    for frame in range(1, 37):
         bpy.context.scene.frame_set(frame)
 
-        # Right hand neutral
-        for pb_name in ['Shoulder.R', 'UpperArm.R', 'Forearm.R', 'Hand.R', 'Hips', 'Chest', 'Head', 'UpperLeg.L', 'LowerLeg.L', 'Foot.L', 'UpperLeg.R', 'LowerLeg.R', 'Foot.R']:
-            pb = pbones.get(pb_name)
-            if pb:
-                pb.rotation_mode = 'XYZ'
-                pb.location = Vector((0, 0, 0))
-                pb.rotation_euler = Euler((0, 0, 0), 'XYZ')
-                pb.keyframe_insert(data_path="location", frame=frame)
-                pb.keyframe_insert(data_path="rotation_euler", frame=frame)
+        # 1. Trajectory angle and phase factors
+        if frame < F_start:
+            # Phase 1: Wind-up coil (F1-F5)
+            deg_val = -135.0
+            body_twist_factor = 0.0 # full coil back
+        elif frame <= F_end:
+            # Phase 2: Active continuous power strike (F6-F20)
+            t_strike_progress = (frame - F_start) / (F_end - F_start)
+            # Explosive acceleration curve (t^1.45)
+            ease_strike = t_strike_progress ** 1.45
+            deg_val = -135.0 + (-315.0 - (-135.0)) * ease_strike
+            # Torso torque smoothstep
+            body_twist_factor = t_strike_progress
+        elif frame <= F_end + 4: # Frames 21-24: Impact hold
+            deg_val = -315.0
+            body_twist_factor = 1.0
+        else:
+            # Phase 4: Recovery with smooth cubic ease-out (F25-F36)
+            t_rec = (frame - (F_end + 4)) / (36 - (F_end + 4))
+            ease_rec = 1.0 - ((1.0 - t_rec) ** 3)
+            deg_val = -315.0 + (-135.0 - (-315.0)) * ease_rec
+            body_twist_factor = 1.0 - ease_rec
 
-        # Shoulder.L neutral base
+        th = math.radians(deg_val)
+
+        # 2. Dynamic Full Body Martial Torque ("бочком поворачивается")
+        # Wind-up coil: Hips +25°, Chest +35°, forward lean -5°
+        # Strike peak: Hips -35°, Chest -50°, forward lean +15°
+        hips_yaw = math.radians(25.0 + (-35.0 - 25.0) * body_twist_factor)
+        chest_yaw = math.radians(35.0 + (-50.0 - 35.0) * body_twist_factor)
+        chest_lean = math.radians(-5.0 + (15.0 - (-5.0)) * body_twist_factor)
+
+        # Head target lock: counter-rotates so gaze stays focused forward
+        head_yaw = -chest_yaw * 0.65
+
+        # Subtle impact tremor on frame 22
+        if frame == 22:
+            chest_lean += math.radians(2.0)
+            hips_yaw += math.radians(1.5)
+
+        # Apply Spine/Torso
+        if pb_hips:
+            pb_hips.rotation_mode = 'XYZ'
+            pb_hips.location = Vector((0, 0, 0))
+            pb_hips.rotation_euler = Euler((0, 0, hips_yaw), 'XYZ')
+            pb_hips.keyframe_insert(data_path="location", frame=frame)
+            pb_hips.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+        if pb_chest:
+            pb_chest.rotation_mode = 'XYZ'
+            pb_chest.location = Vector((0, 0, 0))
+            pb_chest.rotation_euler = Euler((chest_lean, 0, chest_yaw), 'XYZ')
+            pb_chest.keyframe_insert(data_path="location", frame=frame)
+            pb_chest.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+        if pb_head:
+            pb_head.rotation_mode = 'XYZ'
+            pb_head.location = Vector((0, 0, 0))
+            pb_head.rotation_euler = Euler((0, 0, head_yaw), 'XYZ')
+            pb_head.keyframe_insert(data_path="location", frame=frame)
+            pb_head.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+        # 3. Shoulder.L: Extended outward from center of character ("отдалить плечо")
+        # In Shoulder.L rest pose: head is (4*V, 0, 23.5*V), tail is (8*V, 0, 23.5*V) -> points along +X
+        # In bone local space, local +Y is along bone length (+X world).
+        # Giving local location.y = +0.035m pushes the shoulder outward away from the chest!
+        sh_outward = 0.035
+        sh_forward = 0.02 * body_twist_factor
         pb_shoulder_l.rotation_mode = 'XYZ'
-        pb_shoulder_l.location = Vector((0, 0, 0))
-        pb_shoulder_l.rotation_euler = Euler((0, 0, 0), 'XYZ')
+        pb_shoulder_l.location = Vector((sh_forward, sh_outward, 0.0))
+        pb_shoulder_l.rotation_euler = Euler((
+            math.radians(-10.0 + 20.0 * body_twist_factor),
+            math.radians(10.0 - 5.0 * body_twist_factor),
+            math.radians(15.0 - 30.0 * body_twist_factor)
+        ), 'XYZ')
         pb_shoulder_l.keyframe_insert(data_path="location", frame=frame)
         pb_shoulder_l.keyframe_insert(data_path="rotation_euler", frame=frame)
 
+        # 4. Offhand (Right Arm): Martial Counter-balance
+        if pb_shoulder_r:
+            pb_shoulder_r.rotation_mode = 'XYZ'
+            pb_shoulder_r.location = Vector((-0.01 * body_twist_factor, 0.025, 0.0))
+            pb_shoulder_r.rotation_euler = Euler((0, 0, math.radians(-10 - 25 * body_twist_factor)), 'XYZ')
+            pb_shoulder_r.keyframe_insert(data_path="location", frame=frame)
+            pb_shoulder_r.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+        if pb_upperarm_r:
+            pb_upperarm_r.rotation_mode = 'XYZ'
+            pb_upperarm_r.rotation_euler = Euler((
+                math.radians(-15.0 - 25.0 * body_twist_factor),
+                math.radians(-10.0 - 15.0 * body_twist_factor),
+                math.radians(-20.0 - 35.0 * body_twist_factor)
+            ), 'XYZ')
+            pb_upperarm_r.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+        if pb_forearm_r:
+            pb_forearm_r.rotation_mode = 'XYZ'
+            pb_forearm_r.rotation_euler = Euler((math.radians(20.0 + 30.0 * body_twist_factor), 0, 0), 'XYZ')
+            pb_forearm_r.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+        if pb_hand_r:
+            pb_hand_r.rotation_mode = 'XYZ'
+            pb_hand_r.rotation_euler = Euler((0, 0, math.radians(-10.0 * body_twist_factor)), 'XYZ')
+            pb_hand_r.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+        # 5. Athletic Martial Footwork & Leg Stance (Ground Z >= 0.0)
+        if pb_leg_l:
+            pb_leg_l.rotation_euler = Euler((
+                math.radians(10.0 - 20.0 * body_twist_factor),
+                0,
+                math.radians(15.0 - 25.0 * body_twist_factor)
+            ), 'XYZ')
+            pb_leg_l.keyframe_insert(data_path="rotation_euler", frame=frame)
+        if pb_shin_l:
+            pb_shin_l.rotation_euler = Euler((math.radians(10.0 * body_twist_factor), 0, 0), 'XYZ')
+            pb_shin_l.keyframe_insert(data_path="rotation_euler", frame=frame)
+        if pb_foot_l:
+            pb_foot_l.rotation_euler = Euler((math.radians(-5.0 * body_twist_factor), 0, 0), 'XYZ')
+            pb_foot_l.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+        if pb_leg_r:
+            pb_leg_r.rotation_euler = Euler((
+                math.radians(-10.0 + 20.0 * body_twist_factor),
+                0,
+                math.radians(5.0 - 15.0 * body_twist_factor)
+            ), 'XYZ')
+            pb_leg_r.keyframe_insert(data_path="rotation_euler", frame=frame)
+        if pb_shin_r:
+            pb_shin_r.rotation_euler = Euler((math.radians(15.0 - 10.0 * body_twist_factor), 0, 0), 'XYZ')
+            pb_shin_r.keyframe_insert(data_path="rotation_euler", frame=frame)
+        if pb_foot_r:
+            pb_foot_r.rotation_euler = Euler((math.radians(-5.0 + 5.0 * body_twist_factor), 0, 0), 'XYZ')
+            pb_foot_r.keyframe_insert(data_path="rotation_euler", frame=frame)
+
         bpy.context.view_layer.update()
+
+        # 6. Hand.L Position on Expanded Radius (R = 0.35m)
+        h_pos = C_base + Vector((-R * math.cos(th), R * math.sin(th), 0.0))
+
+        # Evaluate current shoulder world position in evaluated scene
         sh_pos = pb_shoulder_l.matrix.to_translation()
 
-        # Compute trajectory point & angle
-        h_pos, th = get_circle_pos_left(spec['deg'])
-
-        # Align UpperArm.L and Forearm.L along line of action
+        # 7. UpperArm.L and Forearm.L along line of action
         upper_mat, fore_mat = solve_arm_segments_mat(sh_pos, h_pos)
         set_bone_world_matrix(pb_upperarm_l, upper_mat)
         pb_upperarm_l.keyframe_insert(data_path="location", frame=frame)
@@ -260,7 +411,7 @@ def build_attack_round():
         pb_forearm_l.keyframe_insert(data_path="rotation_euler", frame=frame)
         bpy.context.view_layer.update()
 
-        # Compute exact Hand.L & Socket_Hand_L world matrix
+        # 8. Exact Hand.L & Socket_Hand_L world matrix (with 180° rotated blade edge)
         sock_mat = solve_socket_hand_matrix_left(h_pos, th)
         hand_mat = solve_hand_matrix_from_socket(pb_hand_l, pb_socket_l, sock_mat)
 
@@ -268,20 +419,18 @@ def build_attack_round():
         pb_hand_l.keyframe_insert(data_path="location", frame=frame)
         pb_hand_l.keyframe_insert(data_path="rotation_euler", frame=frame)
 
-        # Keep Socket_Hand_L keyframed at local identity
         pb_socket_l.location = Vector((0, 0, 0))
         pb_socket_l.rotation_euler = Euler((0, 0, 0), 'XYZ')
         pb_socket_l.keyframe_insert(data_path="location", frame=frame)
         pb_socket_l.keyframe_insert(data_path="rotation_euler", frame=frame)
 
-    # Set Bezier interpolation
+    # Linear interpolation between dense frames for 100% velocity fidelity
     if act.fcurves:
         for fc in act.fcurves:
             for kp in fc.keyframe_points:
-                kp.interpolation = 'BEZIER'
-                kp.easing = 'AUTO'
+                kp.interpolation = 'LINEAR'
 
-    print("Keyframed Attack_Round: True Left Hand rotation from -135° to -315°.")
+    print("Keyframed Attack_Round: Outward shoulder, martial torque, 180° katana edge, and ease-out recovery.")
 
     # --- TEMPORARY AUDIT SWORD ATTACHMENT VIA ARMATURE SKINNING ---
     audit_sword = create_temp_sword()
@@ -292,7 +441,7 @@ def build_attack_round():
 
     # --- MULTI-ANGLE 3-ROW FILMSTRIP GENERATION ---
     print("\n--- RENDERING 3-ROW CONTACT SHEET (attack_round_filmstrip.png) ---")
-    filmstrip_frames = [1, 6, 10, 14, 18, 22, 26, 36]
+    filmstrip_frames = [1, 6, 9, 13, 17, 20, 24, 36]
     filmstrip_cols = len(filmstrip_frames)
 
     scene = bpy.context.scene
@@ -317,30 +466,33 @@ def build_attack_round():
         scene.collection.objects.link(lobj)
         return lobj
 
-    add_light("KeySun", 'SUN', (3.0, 3.0, 5.0), 3.5, (1.0, 0.95, 0.88))
-    add_light("FillTop", 'POINT', (0.0, 0.0, 4.0), 40.0, (0.85, 0.92, 1.0))
-    add_light("RimLight", 'POINT', (-2.5, -2.5, 2.5), 60.0, (0.4, 0.8, 1.0))
+    add_light("KeySun", 'SUN', (-2.0, 3.0, 4.0), 4.5, (1.0, 0.98, 0.92))
+    add_light("FrontFill", 'POINT', (1.2, 2.2, 1.2), 75.0, (0.9, 0.95, 1.0))
+    add_light("TopFill", 'POINT', (0.0, 0.0, 3.0), 45.0, (1.0, 1.0, 1.0))
+    add_light("RimLight", 'POINT', (2.0, -2.0, 2.0), 60.0, (0.4, 0.8, 1.0))
 
     cam_data = bpy.data.cameras.new("FilmstripCam")
     cam_obj = bpy.data.objects.new("FilmstripCam", cam_data)
     scene.collection.objects.link(cam_obj)
     scene.camera = cam_obj
 
+    # 3 views with automatic look-at pointing at character center (0, 0, 0.25)
+    char_center = Vector((0.0, 0.0, 0.25))
     views = [
-        ('top', Vector((0.0, 0.0, 1.5)), Euler((0.0, 0.0, 0.0), 'XYZ'), 0.95),
-        ('front_34', Vector((0.9, 1.2, 0.7)), Euler((math.radians(65), 0.0, math.radians(-35)), 'XYZ'), 0.70),
-        ('side', Vector((1.4, 0.0, 0.32)), Euler((math.radians(90), 0.0, math.radians(90)), 'XYZ'), 0.70)
+        ('top', Vector((0.0, 0.0, 1.6)), 'ORTHO', 1.15),
+        ('front_34', Vector((-0.75, 1.15, 0.50)), 'PERSP', 0.85),
+        ('front', Vector((0.0, 1.35, 0.28)), 'ORTHO', 0.85)
     ]
 
     rendered_images = []
-    for row_idx, (vname, cam_pos, cam_rot, ortho_scale) in enumerate(views):
+    for row_idx, (vname, cam_pos, cam_type, ortho_scale) in enumerate(views):
         cam_obj.location = cam_pos
-        cam_obj.rotation_euler = cam_rot
-        cam_data.type = 'ORTHO' if vname in ('top', 'side') else 'PERSP'
-        if cam_data.type == 'ORTHO':
+        point_camera_at(cam_obj, char_center)
+        cam_data.type = cam_type
+        if cam_type == 'ORTHO':
             cam_data.ortho_scale = ortho_scale
         else:
-            cam_data.lens = 50
+            cam_data.lens = 45
 
         for col_idx, f in enumerate(filmstrip_frames):
             scene.frame_set(f)
@@ -377,7 +529,7 @@ for r in range(views):
             except Exception:
                 pass
 
-row_labels = ["TOP-DOWN (True Hand.L: -135° to -315°)", "FRONT 3/4 PERSPECTIVE", "SIDE PROFILE (Strict Z=0.28m)"]
+row_labels = ["TOP-DOWN (Expanded Arc R=0.35m & Outward Shoulder)", "FRONT 3/4 (Torso Twist +35° -> -50° & Martial Lean)", "FRONT ELEVATION (Floor Z >= 0.0m & Counter-balance)"]
 for r, label in enumerate(row_labels):
     draw.text((12, r * h + 10), label, fill=(255, 215, 0, 255))
 
