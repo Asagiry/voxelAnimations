@@ -125,6 +125,7 @@ export const App: React.FC = () => {
     setDuration(initialDuration);
     const rawQuery = (window.location.search || window.location.hash.replace(/^#\??/, '?')).replace(/%26/g, '&');
     const searchParams = new URLSearchParams(rawQuery);
+    const urlClip = searchParams.get('clip');
     if (urlClip && loadedClips.includes(urlClip)) {
       setActiveClip(urlClip);
     } else if (loadedClips.includes('Attack_Round')) {

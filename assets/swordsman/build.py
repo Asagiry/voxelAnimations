@@ -42,7 +42,8 @@ def main():
         os.path.join(base_dir, "model.py"),
         os.path.join(base_dir, "anim_walk.py"),
         os.path.join(base_dir, "anim_attack.py"),
-        os.path.join(base_dir, "anim_attack_round.py")
+        os.path.join(base_dir, "anim_attack_round.py"),
+        os.path.join(base_dir, "anim_attack_overhead.py")
     ]
 
     for stage_script in stages:

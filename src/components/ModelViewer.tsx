@@ -372,8 +372,8 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
           );
         }
 
-        // Search for weapon socket based on activeClip (Left Hand for Attack_Round, Right Hand default)
-        const isLeftHandClip = activeClip?.toLowerCase().includes('round');
+        // Search for weapon socket based on activeClip (Left Hand for Attack_Round & Attack_Overhead, Right Hand default)
+        const isLeftHandClip = activeClip?.toLowerCase().includes('round') || activeClip?.toLowerCase().includes('overhead');
         const socket = isLeftHandClip
           ? currentModel.getObjectByName('Socket_Hand_L') ||
             currentModel.getObjectByName('Hand.L') ||
